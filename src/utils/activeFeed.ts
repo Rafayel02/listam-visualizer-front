@@ -1,4 +1,5 @@
 import type { Listing, Owner, PriceHistoryEntry, SearchListing } from '../types'
+import { isDetailEnriched } from './listingDetail'
 
 export type FeedActivityType = 'created' | 'updated'
 export type FeedTimeWindow = '24h' | '7d' | '30d' | 'all'
@@ -121,6 +122,18 @@ export function getListAmActivity(listing: Listing): ListAmActivity | null {
     }
   }
 
+  // Detail page analyzed but list.am did not expose a post/renew date in HTML.
+  if (isDetailEnriched(listing) && listing.lastChangedAt) {
+    const isUpdate = listing.lastChangedAt > listing.firstSeenAt + RENEWAL_VS_POST_MS
+    return {
+      activityAt: listing.lastChangedAt,
+      activityType: isUpdate ? 'updated' : 'created',
+      activityLabel: isUpdate
+        ? 'Updated (detail analyzed, list.am date unavailable)'
+        : 'Posted (detail analyzed, list.am date unavailable)',
+    }
+  }
+
   return null
 }
 
@@ -142,6 +155,7 @@ export function buildActiveFeed(
   const items: ActiveFeedItem[] = []
 
   for (const listing of listings) {
+    if (!isDetailEnriched(listing)) continue
     if (!isListingActive(listing, presenceByListing)) continue
 
     const activity = getListAmActivity(listing)

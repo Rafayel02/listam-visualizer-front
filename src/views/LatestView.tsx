@@ -14,6 +14,7 @@ import {
   passesPriceFilter,
   type FilterCurrency,
 } from '../utils/currency'
+import { detailEnrichmentLabel } from '../utils/listingDetail'
 import { formatRateSummary, type ExchangeRates } from '../utils/exchangeRates'
 import {
   buildActiveFeed,
@@ -164,8 +165,8 @@ export function LatestView({
           <p className="latest-eyebrow">Live inventory</p>
           <h2>Latest active posts</h2>
           <p className="latest-subtitle">
-            Sorted by owner reliability. Price filters use live exchange rates across AMD, USD,
-            and EUR.
+            Only listings with analyzed detail pages (owners, dates, price history). Sorted by
+            owner reliability. Price filters use live exchange rates.
           </p>
         </div>
         <div className="latest-stats">
@@ -275,7 +276,7 @@ export function LatestView({
           <h3>No listings match</h3>
           <p className="muted">
             {items.length === 0
-              ? 'Run detail analysis so posted/renewed dates are captured, or widen the time window.'
+              ? 'Run detail analysis in scrape-front, sync to backend, then refresh. Card-only listings are not shown here.'
               : 'Try widening the price range or changing the filter currency.'}
           </p>
         </section>
@@ -321,7 +322,18 @@ export function LatestView({
                   {item.listing.rooms != null && <span>{item.listing.rooms} rm</span>}
                   {item.listing.areaSqm != null && <span>{item.listing.areaSqm} m²</span>}
                   {item.listing.district && <span>{item.listing.district}</span>}
+                  {detailEnrichmentLabel(item.listing) && (
+                    <span className="latest-detail-badge">{detailEnrichmentLabel(item.listing)}</span>
+                  )}
                 </div>
+
+                {item.listing.description && (
+                  <p className="latest-description">
+                    {item.listing.description.length > 180
+                      ? `${item.listing.description.slice(0, 180)}…`
+                      : item.listing.description}
+                  </p>
+                )}
 
                 {item.owner && (
                   <div className="latest-owner">

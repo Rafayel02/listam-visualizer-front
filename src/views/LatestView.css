@@ -220,6 +220,22 @@
   font-size: 0.9rem;
 }
 
+.latest-detail-badge {
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.latest-description {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .latest-owner {
   display: flex;
   flex-wrap: wrap;

@@ -10,10 +10,80 @@ import {
   formatListAmDate,
   formatRelativeTime,
   getLatestPriceHistoryEntry,
+  type ActiveFeedItem,
   type FeedTimeWindow,
   type FeedTypeFilter,
 } from '../utils/activeFeed'
 import './LatestView.css'
+
+type LatestSort = 'activity' | 'price-asc' | 'price-desc' | 'reliability'
+
+const CURRENCY_LABELS: Record<string, string> = {
+  '֏': 'AMD (֏)',
+  AMD: 'AMD (֏)',
+  $: 'USD ($)',
+  USD: 'USD ($)',
+  '€': 'EUR (€)',
+  EUR: 'EUR (€)',
+}
+
+function currencyLabel(code: string): string {
+  return CURRENCY_LABELS[code] ?? code
+}
+
+function normalizeCurrency(currency?: string): string {
+  if (!currency) return ''
+  const trimmed = currency.trim()
+  if (trimmed === '֏' || trimmed.toUpperCase() === 'AMD') return 'AMD'
+  if (trimmed === '$' || trimmed.toUpperCase() === 'USD') return 'USD'
+  if (trimmed === '€' || trimmed.toUpperCase() === 'EUR') return 'EUR'
+  return trimmed
+}
+
+function listingCurrencyKey(listing: { currency?: string }): string {
+  return normalizeCurrency(listing.currency)
+}
+
+function sortFeedItems(
+  items: ActiveFeedItem[],
+  sort: LatestSort,
+  currencyFilter: string,
+  listingCountByOwner: Map<string, number>,
+): ActiveFeedItem[] {
+  let filtered = items
+  if (currencyFilter !== 'all') {
+    filtered = items.filter((item) => listingCurrencyKey(item.listing) === currencyFilter)
+  }
+
+  if (sort === 'activity') {
+    return filtered
+  }
+
+  if (sort === 'price-asc' || sort === 'price-desc') {
+    return [...filtered].sort((a, b) => {
+      const priceA = a.listing.price
+      const priceB = b.listing.price
+      const missingA = priceA == null || priceA <= 0
+      const missingB = priceB == null || priceB <= 0
+      if (missingA && missingB) return b.activityAt - a.activityAt
+      if (missingA) return 1
+      if (missingB) return -1
+      if (priceA === priceB) return b.activityAt - a.activityAt
+      return sort === 'price-asc' ? priceA - priceB : priceB - priceA
+    })
+  }
+
+  return [...filtered].sort((a, b) => {
+    const scoreA = a.owner
+      ? computeOwnerReliabilityScore(a.owner, listingCountByOwner.get(a.owner.id) ?? 0).score
+      : -1
+    const scoreB = b.owner
+      ? computeOwnerReliabilityScore(b.owner, listingCountByOwner.get(b.owner.id) ?? 0).score
+      : -1
+    if (scoreB !== scoreA) return scoreB - scoreA
+    return b.activityAt - a.activityAt
+  })
+}
 
 function formatPrice(listing: {
   price?: number
@@ -41,7 +111,8 @@ export function LatestView({
 }: LatestViewProps) {
   const [window, setWindow] = useState<FeedTimeWindow>('7d')
   const [typeFilter, setTypeFilter] = useState<FeedTypeFilter>('all')
-  const [sortByReliability, setSortByReliability] = useState(true)
+  const [sort, setSort] = useState<LatestSort>('activity')
+  const [currencyFilter, setCurrencyFilter] = useState<string>('all')
 
   const listingCountByOwner = useMemo(() => {
     const counts = new Map<string, number>()
@@ -57,6 +128,15 @@ export function LatestView({
     [listings, owners, searchListings, window, typeFilter],
   )
 
+  const currencyOptions = useMemo(() => {
+    const keys = new Set<string>()
+    for (const item of items) {
+      const key = listingCurrencyKey(item.listing)
+      if (key) keys.add(key)
+    }
+    return [...keys].sort((a, b) => currencyLabel(a).localeCompare(currencyLabel(b)))
+  }, [items])
+
   const counts = useMemo(
     () => ({
       created: items.filter((item) => item.activityType === 'created').length,
@@ -65,27 +145,19 @@ export function LatestView({
     [items],
   )
 
-  const visibleItems = useMemo(() => {
-    if (!sortByReliability) return items
+  const visibleItems = useMemo(
+    () => sortFeedItems(items, sort, currencyFilter, listingCountByOwner),
+    [items, sort, currencyFilter, listingCountByOwner],
+  )
 
-    return [...items].sort((a, b) => {
-      const scoreA = a.owner
-        ? computeOwnerReliabilityScore(
-            a.owner,
-            listingCountByOwner.get(a.owner.id) ?? 0,
-          ).score
-        : -1
-      const scoreB = b.owner
-        ? computeOwnerReliabilityScore(
-            b.owner,
-            listingCountByOwner.get(b.owner.id) ?? 0,
-          ).score
-        : -1
-
-      if (scoreB !== scoreA) return scoreB - scoreA
-      return b.activityAt - a.activityAt
-    })
-  }, [items, sortByReliability, listingCountByOwner])
+  const sortDescription =
+    sort === 'price-asc'
+      ? 'Sorted by price (low → high)'
+      : sort === 'price-desc'
+        ? 'Sorted by price (high → low)'
+        : sort === 'reliability'
+          ? 'Sorted by owner reliability'
+          : 'Sorted by list.am activity date'
 
   return (
     <div className="latest-view">
@@ -94,11 +166,16 @@ export function LatestView({
           <p className="latest-eyebrow">Live inventory</p>
           <h2>Latest active posts</h2>
           <p className="latest-subtitle">
-            Sorted by list.am posted, renewed, and price-change dates — not when we scraped them.
+            {sortDescription}. Dates come from list.am posted, renewed, and price-change fields.
           </p>
         </div>
         <div className="latest-stats">
-          <span>{items.length} shown</span>
+          <span>
+            {visibleItems.length} shown
+            {currencyFilter !== 'all' && items.length !== visibleItems.length
+              ? ` of ${items.length}`
+              : ''}
+          </span>
           <span>{counts.created} new</span>
           <span>{counts.updated} updated</span>
         </div>
@@ -129,14 +206,36 @@ export function LatestView({
             </button>
           ))}
         </div>
-        <label className="latest-checkbox">
-          <input
-            type="checkbox"
-            checked={sortByReliability}
-            onChange={(e) => setSortByReliability(e.target.checked)}
-          />
-          Sort by owner reliability (most reliable first)
-        </label>
+        <div className="latest-sort-row">
+          <label className="latest-select-label">
+            Currency
+            <select
+              className="latest-select"
+              value={currencyFilter}
+              onChange={(e) => setCurrencyFilter(e.target.value)}
+            >
+              <option value="all">All currencies</option>
+              {currencyOptions.map((code) => (
+                <option key={code} value={code}>
+                  {currencyLabel(code)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="latest-select-label">
+            Sort
+            <select
+              className="latest-select"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as LatestSort)}
+            >
+              <option value="activity">Latest activity</option>
+              <option value="price-asc">Price: low → high</option>
+              <option value="price-desc">Price: high → low</option>
+              <option value="reliability">Owner reliability</option>
+            </select>
+          </label>
+        </div>
       </section>
 
       {loading && (
@@ -147,9 +246,11 @@ export function LatestView({
 
       {!loading && visibleItems.length === 0 ? (
         <section className="panel latest-empty">
-          <h3>No recent list.am activity</h3>
+          <h3>No listings match</h3>
           <p className="muted">
-            Run detail analysis so posted/renewed dates are captured, or widen the time window.
+            {items.length === 0
+              ? 'Run detail analysis so posted/renewed dates are captured, or widen the time window.'
+              : 'Try a different currency filter or sort option.'}
           </p>
         </section>
       ) : (

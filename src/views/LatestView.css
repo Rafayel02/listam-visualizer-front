@@ -55,13 +55,36 @@
   gap: 0.75rem;
 }
 
-.latest-checkbox {
+.latest-sort-row {
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: #475569;
-  font-size: 0.9rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
   margin-left: auto;
+}
+
+.latest-select-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.latest-select {
+  min-width: 11rem;
+  border: 1px solid #dbe3f0;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .latest-toggle-group {

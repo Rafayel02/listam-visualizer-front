@@ -11,6 +11,7 @@ export function useDuplicateDetection() {
   const [job, setJob] = useState<DuplicateJobState>({ status: 'idle' })
   const [pairs, setPairs] = useState<DuplicatePair[]>([])
   const [byListingId, setByListingId] = useState<Record<string, string[]>>({})
+  const [listingsWithHashes, setListingsWithHashes] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
@@ -28,6 +29,7 @@ export function useDuplicateDetection() {
       const data = await fetchDuplicates()
       setPairs(data.pairs)
       setByListingId(data.byListingId)
+      setListingsWithHashes(data.listingsWithHashes)
       setJob(data.job)
       setError(null)
     } catch (err) {
@@ -88,6 +90,7 @@ export function useDuplicateDetection() {
     job,
     pairs,
     byListingId,
+    listingsWithHashes,
     loading,
     error,
     refresh,

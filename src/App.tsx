@@ -58,6 +58,7 @@ function App() {
             duplicateLoading={duplicates.loading}
             duplicateError={duplicates.error}
             duplicateRunning={duplicates.isRunning}
+            listingsWithHashes={duplicates.listingsWithHashes}
             onStartDuplicateDetection={() => void duplicates.start()}
           />
         )}

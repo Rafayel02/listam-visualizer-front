@@ -28,6 +28,7 @@ interface AnalyzeViewProps {
   duplicateLoading?: boolean
   duplicateError?: string | null
   duplicateRunning?: boolean
+  listingsWithHashes?: number
   onStartDuplicateDetection?: () => void
 }
 
@@ -40,6 +41,7 @@ export function AnalyzeView({
   duplicateLoading = false,
   duplicateError = null,
   duplicateRunning = false,
+  listingsWithHashes = 0,
   onStartDuplicateDetection,
 }: AnalyzeViewProps) {
   const [mode, setMode] = useState<AnalyzeMode>('listings')
@@ -116,6 +118,7 @@ export function AnalyzeView({
         loading={duplicateLoading}
         error={duplicateError}
         isRunning={duplicateRunning}
+        listingsWithHashes={listingsWithHashes}
         onStart={() => onStartDuplicateDetection?.()}
       />
 

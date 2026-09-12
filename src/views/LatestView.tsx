@@ -88,6 +88,7 @@ interface LatestViewProps {
   listings: Listing[]
   owners: Owner[]
   searchListings: SearchListing[]
+  duplicateByListingId?: Record<string, string[]>
   loading?: boolean
 }
 
@@ -95,6 +96,7 @@ export function LatestView({
   listings,
   owners,
   searchListings,
+  duplicateByListingId = {},
   loading = false,
 }: LatestViewProps) {
   const { rates, loading: ratesLoading, error: ratesError } = useExchangeRates()
@@ -107,6 +109,8 @@ export function LatestView({
   const minPrice = parsePriceInput(minPriceInput)
   const maxPrice = parsePriceInput(maxPriceInput)
   const priceFilterActive = minPrice != null || maxPrice != null
+
+  const listingById = useMemo(() => new Map(listings.map((l) => [l.id, l])), [listings])
 
   const listingCountByOwner = useMemo(() => {
     const counts = new Map<string, number>()
@@ -375,6 +379,37 @@ export function LatestView({
                   <p className="latest-price-note">
                     Latest price change: {getLatestPriceHistoryEntry(item.listing)?.raw}
                   </p>
+                )}
+
+                {(duplicateByListingId[item.listing.id]?.length ?? 0) > 0 && (
+                  <div className="latest-duplicates">
+                    <span className="latest-duplicates-label">Same post elsewhere:</span>
+                    <ul className="latest-duplicates-list">
+                      {duplicateByListingId[item.listing.id].map((dupId) => {
+                        const dup = listingById.get(dupId)
+                        const dupOwner = dup?.ownerId
+                          ? owners.find((o) => o.id === dup.ownerId)
+                          : undefined
+                        return (
+                          <li key={dupId}>
+                            <a
+                              href={dup?.url ?? '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="latest-duplicate-link"
+                            >
+                              {dup?.title || dupId}
+                            </a>
+                            {dupOwner && (
+                              <span className="latest-duplicate-owner">
+                                · {dupOwner.name || dupOwner.id}
+                              </span>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
                 )}
               </div>
 

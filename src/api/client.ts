@@ -45,3 +45,62 @@ export async function fetchOverview(): Promise<{
 }> {
   return getJson('/api/stats/overview')
 }
+
+export type DuplicateJobStatus = 'idle' | 'running' | 'completed' | 'failed'
+
+export interface DuplicateJobProgress {
+  phase: 'hashing' | 'comparing' | 'saving'
+  current: number
+  total: number
+  message: string
+}
+
+export interface DuplicateJobState {
+  status: DuplicateJobStatus
+  startedAt?: number
+  finishedAt?: number
+  progress?: DuplicateJobProgress
+  error?: string
+  pairsFound?: number
+  listingsCompared?: number
+}
+
+export interface DuplicateListingSummary {
+  id: string
+  url: string
+  title?: string
+  ownerId?: string
+  thumbnailUrl?: string
+  price?: number
+  currency?: string
+  district?: string
+}
+
+export interface DuplicatePair {
+  id: string
+  matchRatio: number
+  avgSimilarity: number
+  comparedAt: number
+  listingA: DuplicateListingSummary
+  listingB: DuplicateListingSummary
+}
+
+export async function fetchDuplicateStatus(): Promise<DuplicateJobState> {
+  return getJson('/api/duplicates/status')
+}
+
+export async function fetchDuplicates(): Promise<{
+  pairs: DuplicatePair[]
+  byListingId: Record<string, string[]>
+  job: DuplicateJobState
+}> {
+  return getJson('/api/duplicates')
+}
+
+export async function startDuplicateDetection(): Promise<DuplicateJobState> {
+  const res = await fetch(`${apiBase()}/api/duplicates/detect`, { method: 'POST' })
+  const data = (await res.json()) as DuplicateJobState & { error?: string }
+  if (res.status === 409) return data
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  return data
+}

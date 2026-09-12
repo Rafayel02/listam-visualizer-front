@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isApiConfigured } from './api/client'
+import { useDuplicateDetection } from './hooks/useDuplicateDetection'
 import { useScrapeData } from './hooks/useScrapeData'
 import { AnalyzeView } from './views/AnalyzeView'
 import { LatestView } from './views/LatestView'
@@ -10,6 +11,7 @@ type Tab = 'analyze' | 'latest'
 function App() {
   const [tab, setTab] = useState<Tab>('analyze')
   const data = useScrapeData()
+  const duplicates = useDuplicateDetection()
 
   return (
     <div className={`app ${tab === 'analyze' ? 'app-wide' : ''}`}>
@@ -51,6 +53,12 @@ function App() {
             listings={data.listings}
             owners={data.owners}
             loading={data.loading}
+            duplicateJob={duplicates.job}
+            duplicatePairs={duplicates.pairs}
+            duplicateLoading={duplicates.loading}
+            duplicateError={duplicates.error}
+            duplicateRunning={duplicates.isRunning}
+            onStartDuplicateDetection={() => void duplicates.start()}
           />
         )}
         {tab === 'latest' && (
@@ -58,6 +66,7 @@ function App() {
             listings={data.listings}
             owners={data.owners}
             searchListings={data.searchListings}
+            duplicateByListingId={duplicates.byListingId}
             loading={data.loading}
           />
         )}

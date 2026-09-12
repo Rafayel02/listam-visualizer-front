@@ -11,7 +11,9 @@ import { DonutChart } from '../components/charts/DonutChart'
 import { Histogram } from '../components/charts/Histogram'
 import { ScatterPlot } from '../components/charts/ScatterPlot'
 import { StatCard } from '../components/charts/StatCard'
+import type { DuplicatePair, DuplicateJobState } from '../api/client'
 import type { Listing, Owner } from '../types'
+import { DuplicateDetectionSection } from './DuplicateDetectionSection'
 import { OwnerAnalysisSection } from './OwnerAnalysisSection'
 import './AnalyzeView.css'
 
@@ -21,9 +23,25 @@ interface AnalyzeViewProps {
   listings: Listing[]
   owners: Owner[]
   loading?: boolean
+  duplicateJob: DuplicateJobState
+  duplicatePairs: DuplicatePair[]
+  duplicateLoading?: boolean
+  duplicateError?: string | null
+  duplicateRunning?: boolean
+  onStartDuplicateDetection?: () => void
 }
 
-export function AnalyzeView({ listings, owners, loading = false }: AnalyzeViewProps) {
+export function AnalyzeView({
+  listings,
+  owners,
+  loading = false,
+  duplicateJob,
+  duplicatePairs,
+  duplicateLoading = false,
+  duplicateError = null,
+  duplicateRunning = false,
+  onStartDuplicateDetection,
+}: AnalyzeViewProps) {
   const [mode, setMode] = useState<AnalyzeMode>('listings')
   const [kind, setKind] = useState<ListingKind>('sale')
   const [includeRemoved, setIncludeRemoved] = useState(false)
@@ -89,6 +107,17 @@ export function AnalyzeView({ listings, owners, loading = false }: AnalyzeViewPr
           </label>
         </div>
       </section>
+
+      <DuplicateDetectionSection
+        job={duplicateJob}
+        pairs={duplicatePairs}
+        listings={listings}
+        owners={owners}
+        loading={duplicateLoading}
+        error={duplicateError}
+        isRunning={duplicateRunning}
+        onStart={() => onStartDuplicateDetection?.()}
+      />
 
       {mode === 'owners' ? (
         <OwnerAnalysisSection

@@ -1,0 +1,132 @@
+import type { DuplicatePair, DuplicateJobState } from '../api/client'
+import type { Listing, Owner } from '../types'
+import './DuplicateDetectionSection.css'
+
+interface DuplicateDetectionSectionProps {
+  job: DuplicateJobState
+  pairs: DuplicatePair[]
+  listings: Listing[]
+  owners: Owner[]
+  loading: boolean
+  error: string | null
+  isRunning: boolean
+  onStart: () => void
+}
+
+function formatPrice(price?: number, currency?: string): string {
+  if (price == null) return '—'
+  return `${price.toLocaleString()} ${currency ?? ''}`.trim()
+}
+
+function ownerName(owners: Owner[], ownerId?: string): string {
+  if (!ownerId) return 'Unknown owner'
+  const owner = owners.find((o) => o.id === ownerId)
+  return owner?.name || ownerId
+}
+
+function progressPct(job: DuplicateJobState): number {
+  if (!job.progress || job.progress.total <= 0) return 0
+  return Math.min(100, Math.round((job.progress.current / job.progress.total) * 100))
+}
+
+export function DuplicateDetectionSection({
+  job,
+  pairs,
+  listings,
+  owners,
+  loading,
+  error,
+  isRunning,
+  onStart,
+}: DuplicateDetectionSectionProps) {
+  const listingById = new Map(listings.map((l) => [l.id, l]))
+
+  return (
+    <section className="analyze-panel duplicate-section">
+      <header className="analyze-panel-header duplicate-header">
+        <div>
+          <h3>Duplicate posts (cross-owner)</h3>
+          <span className="analyze-panel-meta">
+            pHash: ≥90% per image, ≥80% of images must match · different owners only
+          </span>
+        </div>
+        <button
+          type="button"
+          className="duplicate-run-btn"
+          onClick={onStart}
+          disabled={isRunning || loading}
+        >
+          {isRunning ? 'Detection in progress…' : 'Detect duplicate posts'}
+        </button>
+      </header>
+
+      {error && <p className="duplicate-error">{error}</p>}
+
+      {isRunning && job.progress && (
+        <div className="duplicate-progress">
+          <div className="duplicate-progress-bar">
+            <div className="duplicate-progress-fill" style={{ width: `${progressPct(job)}%` }} />
+          </div>
+          <p className="duplicate-progress-text">{job.progress.message}</p>
+        </div>
+      )}
+
+      {!isRunning && job.status === 'completed' && job.pairsFound != null && (
+        <p className="duplicate-summary">
+          Last run found <strong>{job.pairsFound}</strong> duplicate pair
+          {job.pairsFound === 1 ? '' : 's'}
+          {job.listingsCompared != null && ` across ${job.listingsCompared} listings`}.
+        </p>
+      )}
+
+      {!isRunning && job.status === 'failed' && job.error && (
+        <p className="duplicate-error">Detection failed: {job.error}</p>
+      )}
+
+      {pairs.length === 0 && !isRunning && !loading ? (
+        <p className="analyze-empty">No duplicate pairs stored yet. Run detection after detail analysis.</p>
+      ) : (
+        <div className="duplicate-pairs">
+          {pairs.map((pair) => (
+            <article key={pair.id} className="duplicate-pair-card">
+              <div className="duplicate-pair-score">
+                <strong>{Math.round(pair.avgSimilarity * 100)}%</strong>
+                <span>avg match</span>
+                <span className="duplicate-pair-ratio">{Math.round(pair.matchRatio * 100)}% images</span>
+              </div>
+              <div className="duplicate-pair-listings">
+                {[pair.listingA, pair.listingB].map((item) => {
+                  const listing = listingById.get(item.id)
+                  return (
+                    <div key={item.id} className="duplicate-listing">
+                      {item.thumbnailUrl && (
+                        <img src={item.thumbnailUrl} alt="" className="duplicate-thumb" />
+                      )}
+                      <div>
+                        <a href={item.url} target="_blank" rel="noreferrer" className="duplicate-link">
+                          {item.title || item.id}
+                        </a>
+                        <div className="duplicate-listing-meta">
+                          <span>{formatPrice(item.price, item.currency)}</span>
+                          {item.district && <span>{item.district}</span>}
+                          <span>{ownerName(owners, item.ownerId)}</span>
+                        </div>
+                        {listing?.description && (
+                          <p className="duplicate-desc">
+                            {listing.description.length > 100
+                              ? `${listing.description.slice(0, 100)}…`
+                              : listing.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}

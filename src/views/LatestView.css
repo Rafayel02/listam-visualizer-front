@@ -87,6 +87,14 @@
   letter-spacing: normal;
 }
 
+.latest-sort-hint {
+  align-self: center;
+  color: #64748b;
+  font-size: 0.82rem;
+  max-width: 9rem;
+  line-height: 1.35;
+}
+
 .latest-toggle-group {
   display: inline-flex;
   flex-wrap: wrap;

@@ -16,7 +16,7 @@ import {
 } from '../utils/activeFeed'
 import './LatestView.css'
 
-type LatestSort = 'activity' | 'price-asc' | 'price-desc' | 'reliability'
+type LatestSort = 'activity' | 'price-asc' | 'price-desc'
 
 const CURRENCY_LABELS: Record<string, string> = {
   '֏': 'AMD (֏)',
@@ -44,6 +44,41 @@ function listingCurrencyKey(listing: { currency?: string }): string {
   return normalizeCurrency(listing.currency)
 }
 
+function ownerReliabilityScore(
+  item: ActiveFeedItem,
+  listingCountByOwner: Map<string, number>,
+): number {
+  if (!item.owner) return -1
+  return computeOwnerReliabilityScore(
+    item.owner,
+    listingCountByOwner.get(item.owner.id) ?? 0,
+  ).score
+}
+
+function compareByReliability(
+  a: ActiveFeedItem,
+  b: ActiveFeedItem,
+  listingCountByOwner: Map<string, number>,
+): number {
+  return ownerReliabilityScore(b, listingCountByOwner) - ownerReliabilityScore(a, listingCountByOwner)
+}
+
+function compareByPrice(
+  a: ActiveFeedItem,
+  b: ActiveFeedItem,
+  sort: 'price-asc' | 'price-desc',
+): number {
+  const priceA = a.listing.price
+  const priceB = b.listing.price
+  const missingA = priceA == null || priceA <= 0
+  const missingB = priceB == null || priceB <= 0
+  if (missingA && missingB) return 0
+  if (missingA) return 1
+  if (missingB) return -1
+  if (priceA === priceB) return 0
+  return sort === 'price-asc' ? priceA - priceB : priceB - priceA
+}
+
 function sortFeedItems(
   items: ActiveFeedItem[],
   sort: LatestSort,
@@ -55,32 +90,18 @@ function sortFeedItems(
     filtered = items.filter((item) => listingCurrencyKey(item.listing) === currencyFilter)
   }
 
-  if (sort === 'activity') {
-    return filtered
-  }
-
-  if (sort === 'price-asc' || sort === 'price-desc') {
-    return [...filtered].sort((a, b) => {
-      const priceA = a.listing.price
-      const priceB = b.listing.price
-      const missingA = priceA == null || priceA <= 0
-      const missingB = priceB == null || priceB <= 0
-      if (missingA && missingB) return b.activityAt - a.activityAt
-      if (missingA) return 1
-      if (missingB) return -1
-      if (priceA === priceB) return b.activityAt - a.activityAt
-      return sort === 'price-asc' ? priceA - priceB : priceB - priceA
-    })
-  }
-
   return [...filtered].sort((a, b) => {
-    const scoreA = a.owner
-      ? computeOwnerReliabilityScore(a.owner, listingCountByOwner.get(a.owner.id) ?? 0).score
-      : -1
-    const scoreB = b.owner
-      ? computeOwnerReliabilityScore(b.owner, listingCountByOwner.get(b.owner.id) ?? 0).score
-      : -1
-    if (scoreB !== scoreA) return scoreB - scoreA
+    if (sort === 'price-asc' || sort === 'price-desc') {
+      const priceCmp = compareByPrice(a, b, sort)
+      if (priceCmp !== 0) return priceCmp
+    } else {
+      const activityCmp = b.activityAt - a.activityAt
+      if (activityCmp !== 0) return activityCmp
+    }
+
+    const reliabilityCmp = compareByReliability(a, b, listingCountByOwner)
+    if (reliabilityCmp !== 0) return reliabilityCmp
+
     return b.activityAt - a.activityAt
   })
 }
@@ -152,12 +173,10 @@ export function LatestView({
 
   const sortDescription =
     sort === 'price-asc'
-      ? 'Sorted by price (low → high)'
+      ? 'Sorted by price (low → high), then owner reliability'
       : sort === 'price-desc'
-        ? 'Sorted by price (high → low)'
-        : sort === 'reliability'
-          ? 'Sorted by owner reliability'
-          : 'Sorted by list.am activity date'
+        ? 'Sorted by price (high → low), then owner reliability'
+        : 'Sorted by list.am activity, then owner reliability'
 
   return (
     <div className="latest-view">
@@ -232,9 +251,9 @@ export function LatestView({
               <option value="activity">Latest activity</option>
               <option value="price-asc">Price: low → high</option>
               <option value="price-desc">Price: high → low</option>
-              <option value="reliability">Owner reliability</option>
             </select>
           </label>
+          <span className="latest-sort-hint">Owner reliability always breaks ties</span>
         </div>
       </section>
 

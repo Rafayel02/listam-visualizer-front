@@ -10,6 +10,7 @@ interface DuplicateDetectionSectionProps {
   loading: boolean
   error: string | null
   isRunning: boolean
+  listingsWithHashes: number
   onStart: () => void
 }
 
@@ -38,6 +39,7 @@ export function DuplicateDetectionSection({
   loading,
   error,
   isRunning,
+  listingsWithHashes,
   onStart,
 }: DuplicateDetectionSectionProps) {
   const listingById = new Map(listings.map((l) => [l.id, l]))
@@ -48,7 +50,7 @@ export function DuplicateDetectionSection({
         <div>
           <h3>Duplicate posts (cross-owner)</h3>
           <span className="analyze-panel-meta">
-            Same image URLs/IDs (or pHash when available) · ≥80% of images · different owners
+            Backend fetches images and pHash-compares · ≥90% per image · ≥80% match · different owners
           </span>
         </div>
         <button
@@ -73,6 +75,12 @@ export function DuplicateDetectionSection({
           </div>
           <p className="duplicate-progress-text">
             {job.progress?.message ?? 'Starting detection…'}
+            {job.imagesFetched != null && job.imagesFetched > 0 && (
+              <> · {job.imagesFetched} newly fetched</>
+            )}
+            {job.imagesFailed != null && job.imagesFailed > 0 && (
+              <> · {job.imagesFailed} failed</>
+            )}
           </p>
         </div>
       )}
@@ -81,8 +89,22 @@ export function DuplicateDetectionSection({
         <p className="duplicate-summary">
           Last run found <strong>{job.pairsFound}</strong> duplicate pair
           {job.pairsFound === 1 ? '' : 's'}
-          {job.listingsEligible != null && ` from ${job.listingsEligible} listings with images`}
-          {job.listingsCompared != null && job.listingsEligible == null && ` across ${job.listingsCompared} listings`}.
+          {job.listingsEligible != null && ` from ${job.listingsEligible} listings`}
+          {(job.listingsWithHashes ?? listingsWithHashes) > 0 && (
+            <> · {job.listingsWithHashes ?? listingsWithHashes} with hashes</>
+          )}
+          {job.imagesHashed != null && ` · ${job.imagesHashed} images hashed`}
+          {job.imagesFailed != null && job.imagesFailed > 0 && (
+            <> · <span className="duplicate-fail-count">{job.imagesFailed} fetch failures</span></>
+          )}
+          .
+        </p>
+      )}
+
+      {!isRunning && job.imagesFailed != null && job.imagesFailed > 0 && job.listingsWithHashes === 0 && (
+        <p className="duplicate-warn">
+          list.am blocked image downloads from the server ({job.imagesFailed} failed). Duplicate
+          detection needs hashed images — try again later or check Railway outbound access.
         </p>
       )}
 
@@ -93,7 +115,7 @@ export function DuplicateDetectionSection({
       {pairs.length === 0 && !isRunning && !loading ? (
         <p className="analyze-empty">
           {job.status === 'completed'
-            ? 'Detection finished — no cross-owner duplicate posts matched (shared image URLs/IDs).'
+            ? 'Detection finished — no cross-owner duplicate posts matched.'
             : 'No duplicate pairs stored yet. Run detection after detail analysis.'}
         </p>
       ) : (

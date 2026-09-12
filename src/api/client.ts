@@ -64,6 +64,10 @@ export interface DuplicateJobState {
   pairsFound?: number
   listingsCompared?: number
   listingsEligible?: number
+  listingsWithHashes?: number
+  imagesHashed?: number
+  imagesFetched?: number
+  imagesFailed?: number
 }
 
 export interface DuplicateListingSummary {
@@ -93,6 +97,7 @@ export async function fetchDuplicateStatus(): Promise<DuplicateJobState> {
 export async function fetchDuplicates(): Promise<{
   pairs: DuplicatePair[]
   byListingId: Record<string, string[]>
+  listingsWithHashes: number
   job: DuplicateJobState
 }> {
   return getJson('/api/duplicates')

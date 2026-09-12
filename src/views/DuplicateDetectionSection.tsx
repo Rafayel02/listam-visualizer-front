@@ -48,7 +48,7 @@ export function DuplicateDetectionSection({
         <div>
           <h3>Duplicate posts (cross-owner)</h3>
           <span className="analyze-panel-meta">
-            pHash: ≥90% per image, ≥80% of images must match · different owners only
+            Same image URLs/IDs (or pHash when available) · ≥80% of images · different owners
           </span>
         </div>
         <button

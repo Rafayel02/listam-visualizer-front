@@ -13,6 +13,7 @@ export function useDuplicateDetection() {
   const [byListingId, setByListingId] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [starting, setStarting] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -52,13 +53,23 @@ export function useDuplicateDetection() {
 
   const start = useCallback(async () => {
     setError(null)
+    setStarting(true)
+    setJob((prev) => ({
+      ...prev,
+      status: 'running',
+      progress: { phase: 'hashing', current: 0, total: 0, message: 'Starting detection…' },
+    }))
     try {
       const state = await startDuplicateDetection()
       setJob(state)
       stopPolling()
-      pollRef.current = setInterval(() => void pollStatus(), 2000)
+      await pollStatus()
+      pollRef.current = setInterval(() => void pollStatus(), 500)
     } catch (err) {
       setError((err as Error).message)
+      setJob({ status: 'idle' })
+    } finally {
+      setStarting(false)
     }
   }, [pollStatus, stopPolling])
 
@@ -69,7 +80,7 @@ export function useDuplicateDetection() {
 
   useEffect(() => {
     if (job.status === 'running' && !pollRef.current) {
-      pollRef.current = setInterval(() => void pollStatus(), 2000)
+      pollRef.current = setInterval(() => void pollStatus(), 500)
     }
   }, [job.status, pollStatus])
 
@@ -81,6 +92,6 @@ export function useDuplicateDetection() {
     error,
     refresh,
     start,
-    isRunning: job.status === 'running',
+    isRunning: starting || job.status === 'running',
   }
 }

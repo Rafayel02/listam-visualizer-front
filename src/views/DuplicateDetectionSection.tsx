@@ -24,8 +24,9 @@ function ownerName(owners: Owner[], ownerId?: string): string {
   return owner?.name || ownerId
 }
 
-function progressPct(job: DuplicateJobState): number {
-  if (!job.progress || job.progress.total <= 0) return 0
+function progressPct(job: DuplicateJobState, running: boolean): number {
+  if (!job.progress) return running ? 8 : 0
+  if (job.progress.total <= 0) return running ? 12 : 0
   return Math.min(100, Math.round((job.progress.current / job.progress.total) * 100))
 }
 
@@ -62,12 +63,17 @@ export function DuplicateDetectionSection({
 
       {error && <p className="duplicate-error">{error}</p>}
 
-      {isRunning && job.progress && (
+      {isRunning && (
         <div className="duplicate-progress">
           <div className="duplicate-progress-bar">
-            <div className="duplicate-progress-fill" style={{ width: `${progressPct(job)}%` }} />
+            <div
+              className={`duplicate-progress-fill${job.progress && job.progress.total <= 0 ? ' duplicate-progress-indeterminate' : ''}`}
+              style={{ width: `${progressPct(job, isRunning)}%` }}
+            />
           </div>
-          <p className="duplicate-progress-text">{job.progress.message}</p>
+          <p className="duplicate-progress-text">
+            {job.progress?.message ?? 'Starting detection…'}
+          </p>
         </div>
       )}
 
@@ -75,7 +81,8 @@ export function DuplicateDetectionSection({
         <p className="duplicate-summary">
           Last run found <strong>{job.pairsFound}</strong> duplicate pair
           {job.pairsFound === 1 ? '' : 's'}
-          {job.listingsCompared != null && ` across ${job.listingsCompared} listings`}.
+          {job.listingsEligible != null && ` from ${job.listingsEligible} listings with images`}
+          {job.listingsCompared != null && job.listingsEligible == null && ` across ${job.listingsCompared} listings`}.
         </p>
       )}
 

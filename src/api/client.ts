@@ -63,6 +63,7 @@ export interface DuplicateJobState {
   error?: string
   pairsFound?: number
   listingsCompared?: number
+  listingsEligible?: number
 }
 
 export interface DuplicateListingSummary {

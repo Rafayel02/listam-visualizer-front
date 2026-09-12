@@ -42,6 +42,16 @@
   transition: width 0.3s ease;
 }
 
+.duplicate-progress-indeterminate {
+  width: 35% !important;
+  animation: duplicate-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes duplicate-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(280%); }
+}
+
 .duplicate-progress-text {
   margin: 0.5rem 0 0;
   font-size: 0.88rem;

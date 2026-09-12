@@ -5,6 +5,7 @@ import {
   reliabilityColor,
 } from '../analytics/ownerAnalytics'
 import type { Listing, Owner, SearchListing } from '../types'
+import { useExchangeRates } from '../hooks/useExchangeRates'
 import {
   FILTER_CURRENCIES,
   currencyLabel,
@@ -13,6 +14,7 @@ import {
   passesPriceFilter,
   type FilterCurrency,
 } from '../utils/currency'
+import { formatRateSummary, type ExchangeRates } from '../utils/exchangeRates'
 import {
   buildActiveFeed,
   formatListAmDate,
@@ -48,12 +50,14 @@ function filterAndSortFeedItems(
   minPrice: number | undefined,
   maxPrice: number | undefined,
   listingCountByOwner: Map<string, number>,
+  rates: ExchangeRates,
 ): ActiveFeedItem[] {
   const filtered = items.filter((item) =>
     passesPriceFilter(
       item.listing.price,
       item.listing.currency,
       filterCurrency,
+      rates,
       minPrice,
       maxPrice,
     ),
@@ -92,6 +96,7 @@ export function LatestView({
   searchListings,
   loading = false,
 }: LatestViewProps) {
+  const { rates, loading: ratesLoading, error: ratesError } = useExchangeRates()
   const [window, setWindow] = useState<FeedTimeWindow>('7d')
   const [typeFilter, setTypeFilter] = useState<FeedTypeFilter>('all')
   const [filterCurrency, setFilterCurrency] = useState<FilterCurrency>('AMD')
@@ -132,24 +137,25 @@ export function LatestView({
         minPrice,
         maxPrice,
         listingCountByOwner,
+        rates,
       ),
-    [items, filterCurrency, minPrice, maxPrice, listingCountByOwner],
+    [items, filterCurrency, minPrice, maxPrice, listingCountByOwner, rates],
   )
 
   const conversionHint = useMemo(() => {
     if (!priceFilterActive) return null
-    return formatPriceRangeHints(minPrice, maxPrice, filterCurrency)
-  }, [priceFilterActive, minPrice, maxPrice, filterCurrency])
+    return formatPriceRangeHints(minPrice, maxPrice, filterCurrency, rates)
+  }, [priceFilterActive, minPrice, maxPrice, filterCurrency, rates])
 
   const exampleHint = useMemo(() => {
     if (filterCurrency === 'AMD') {
-      return `Example: 500,000 AMD ≈ ${formatConversionHints(500_000, 'AMD').join(', ')}`
+      return `Example: 500,000 AMD ≈ ${formatConversionHints(500_000, 'AMD', rates).join(', ')}`
     }
     if (filterCurrency === 'USD') {
-      return `Example: $500 ≈ ${formatConversionHints(500, 'USD').join(', ')}`
+      return `Example: $500 ≈ ${formatConversionHints(500, 'USD', rates).join(', ')}`
     }
-    return `Example: €500 ≈ ${formatConversionHints(500, 'EUR').join(', ')}`
-  }, [filterCurrency])
+    return `Example: €500 ≈ ${formatConversionHints(500, 'EUR', rates).join(', ')}`
+  }, [filterCurrency, rates])
 
   return (
     <div className="latest-view">
@@ -158,8 +164,8 @@ export function LatestView({
           <p className="latest-eyebrow">Live inventory</p>
           <h2>Latest active posts</h2>
           <p className="latest-subtitle">
-            Sorted by owner reliability. Price filters convert across AMD, USD, and EUR
-            (1 USD ≈ 1,000 AMD).
+            Sorted by owner reliability. Price filters use live exchange rates across AMD, USD,
+            and EUR.
           </p>
         </div>
         <div className="latest-stats">
@@ -249,6 +255,10 @@ export function LatestView({
             </button>
           )}
         </div>
+        <p className="latest-filter-hint muted small">
+          {ratesLoading ? 'Loading exchange rates…' : formatRateSummary(rates)}
+          {ratesError && <span className="latest-rates-warning"> · {ratesError}</span>}
+        </p>
         <p className="latest-filter-hint muted small">
           {conversionHint ?? exampleHint}
         </p>

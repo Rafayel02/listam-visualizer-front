@@ -1,11 +1,6 @@
-export type FilterCurrency = 'AMD' | 'USD' | 'EUR'
+import type { ExchangeRates } from './exchangeRates'
 
-/** AMD per 1 unit of foreign currency (e.g. 1 USD ≈ 1,000 AMD). */
-export const AMD_PER_UNIT: Record<FilterCurrency, number> = {
-  AMD: 1,
-  USD: 1000,
-  EUR: 1080,
-}
+export type FilterCurrency = 'AMD' | 'USD' | 'EUR'
 
 export const FILTER_CURRENCIES: FilterCurrency[] = ['AMD', 'USD', 'EUR']
 
@@ -33,42 +28,44 @@ export function convertPrice(
   amount: number,
   from: FilterCurrency,
   to: FilterCurrency,
+  rates: ExchangeRates,
 ): number {
   if (from === to) return amount
-  const amd = amount * AMD_PER_UNIT[from]
-  return amd / AMD_PER_UNIT[to]
+  const amd = amount * rates.amdPerUnit[from]
+  return amd / rates.amdPerUnit[to]
 }
 
 export function formatFilterAmount(value: number, currency: FilterCurrency): string {
   const rounded = currency === 'AMD' ? Math.round(value) : Math.round(value * 100) / 100
-  const suffix =
-    currency === 'AMD' ? '֏' : currency === 'USD' ? '$' : '€'
+  const suffix = currency === 'AMD' ? '֏' : currency === 'USD' ? '$' : '€'
   return `${rounded.toLocaleString()} ${suffix}`
 }
 
 export function formatConversionHints(
   amount: number,
   from: FilterCurrency,
+  rates: ExchangeRates,
 ): string[] {
   return FILTER_CURRENCIES
     .filter((code) => code !== from)
-    .map((code) => `≈ ${formatFilterAmount(convertPrice(amount, from, code), code)}`)
+    .map((code) => `≈ ${formatFilterAmount(convertPrice(amount, from, code, rates), code)}`)
 }
 
 export function formatPriceRangeHints(
   min: number | undefined,
   max: number | undefined,
   currency: FilterCurrency,
+  rates: ExchangeRates,
 ): string | null {
   const parts: string[] = []
   if (min != null && min > 0) {
     parts.push(
-      `min ${formatFilterAmount(min, currency)} (${formatConversionHints(min, currency).join(', ')})`,
+      `min ${formatFilterAmount(min, currency)} (${formatConversionHints(min, currency, rates).join(', ')})`,
     )
   }
   if (max != null && max > 0) {
     parts.push(
-      `max ${formatFilterAmount(max, currency)} (${formatConversionHints(max, currency).join(', ')})`,
+      `max ${formatFilterAmount(max, currency)} (${formatConversionHints(max, currency, rates).join(', ')})`,
     )
   }
   return parts.length > 0 ? parts.join(' · ') : null
@@ -78,17 +75,19 @@ export function listingPriceInFilterCurrency(
   price: number | undefined,
   listingCurrency: string | undefined,
   filterCurrency: FilterCurrency,
+  rates: ExchangeRates,
 ): number | null {
   if (price == null || price <= 0) return null
   const normalized = normalizeCurrency(listingCurrency)
   if (!normalized) return null
-  return convertPrice(price, normalized, filterCurrency)
+  return convertPrice(price, normalized, filterCurrency, rates)
 }
 
 export function passesPriceFilter(
   price: number | undefined,
   listingCurrency: string | undefined,
   filterCurrency: FilterCurrency,
+  rates: ExchangeRates,
   minPrice?: number,
   maxPrice?: number,
 ): boolean {
@@ -96,7 +95,12 @@ export function passesPriceFilter(
   const hasMax = maxPrice != null && maxPrice > 0
   if (!hasMin && !hasMax) return true
 
-  const converted = listingPriceInFilterCurrency(price, listingCurrency, filterCurrency)
+  const converted = listingPriceInFilterCurrency(
+    price,
+    listingCurrency,
+    filterCurrency,
+    rates,
+  )
   if (converted == null) return false
 
   if (hasMin && converted < minPrice!) return false

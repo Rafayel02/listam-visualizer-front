@@ -55,12 +55,17 @@
   gap: 0.75rem;
 }
 
-.latest-sort-row {
+.latest-price-filter {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem;
-  margin-left: auto;
+  width: 100%;
+}
+
+.latest-filter-hint {
+  width: 100%;
+  margin: 0;
 }
 
 .latest-select-label {
@@ -87,12 +92,26 @@
   letter-spacing: normal;
 }
 
-.latest-sort-hint {
-  align-self: center;
-  color: #64748b;
-  font-size: 0.82rem;
-  max-width: 9rem;
-  line-height: 1.35;
+.latest-price-input {
+  min-width: 8rem;
+  border: 1px solid #dbe3f0;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.latest-clear-price {
+  border: 1px solid #dbe3f0;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  align-self: flex-end;
+  cursor: pointer;
 }
 
 .latest-toggle-group {

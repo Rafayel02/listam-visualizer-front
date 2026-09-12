@@ -6,6 +6,14 @@ import {
 } from '../analytics/ownerAnalytics'
 import type { Listing, Owner, SearchListing } from '../types'
 import {
+  FILTER_CURRENCIES,
+  currencyLabel,
+  formatConversionHints,
+  formatPriceRangeHints,
+  passesPriceFilter,
+  type FilterCurrency,
+} from '../utils/currency'
+import {
   buildActiveFeed,
   formatListAmDate,
   formatRelativeTime,
@@ -16,32 +24,11 @@ import {
 } from '../utils/activeFeed'
 import './LatestView.css'
 
-type LatestSort = 'activity' | 'price-asc' | 'price-desc'
-
-const CURRENCY_LABELS: Record<string, string> = {
-  '֏': 'AMD (֏)',
-  AMD: 'AMD (֏)',
-  $: 'USD ($)',
-  USD: 'USD ($)',
-  '€': 'EUR (€)',
-  EUR: 'EUR (€)',
-}
-
-function currencyLabel(code: string): string {
-  return CURRENCY_LABELS[code] ?? code
-}
-
-function normalizeCurrency(currency?: string): string {
-  if (!currency) return ''
-  const trimmed = currency.trim()
-  if (trimmed === '֏' || trimmed.toUpperCase() === 'AMD') return 'AMD'
-  if (trimmed === '$' || trimmed.toUpperCase() === 'USD') return 'USD'
-  if (trimmed === '€' || trimmed.toUpperCase() === 'EUR') return 'EUR'
-  return trimmed
-}
-
-function listingCurrencyKey(listing: { currency?: string }): string {
-  return normalizeCurrency(listing.currency)
+function parsePriceInput(raw: string): number | undefined {
+  const cleaned = raw.replace(/[^\d.]/g, '')
+  if (!cleaned) return undefined
+  const value = Number(cleaned)
+  return Number.isFinite(value) && value > 0 ? value : undefined
 }
 
 function ownerReliabilityScore(
@@ -55,53 +42,28 @@ function ownerReliabilityScore(
   ).score
 }
 
-function compareByReliability(
-  a: ActiveFeedItem,
-  b: ActiveFeedItem,
-  listingCountByOwner: Map<string, number>,
-): number {
-  return ownerReliabilityScore(b, listingCountByOwner) - ownerReliabilityScore(a, listingCountByOwner)
-}
-
-function compareByPrice(
-  a: ActiveFeedItem,
-  b: ActiveFeedItem,
-  sort: 'price-asc' | 'price-desc',
-): number {
-  const priceA = a.listing.price
-  const priceB = b.listing.price
-  const missingA = priceA == null || priceA <= 0
-  const missingB = priceB == null || priceB <= 0
-  if (missingA && missingB) return 0
-  if (missingA) return 1
-  if (missingB) return -1
-  if (priceA === priceB) return 0
-  return sort === 'price-asc' ? priceA - priceB : priceB - priceA
-}
-
-function sortFeedItems(
+function filterAndSortFeedItems(
   items: ActiveFeedItem[],
-  sort: LatestSort,
-  currencyFilter: string,
+  filterCurrency: FilterCurrency,
+  minPrice: number | undefined,
+  maxPrice: number | undefined,
   listingCountByOwner: Map<string, number>,
 ): ActiveFeedItem[] {
-  let filtered = items
-  if (currencyFilter !== 'all') {
-    filtered = items.filter((item) => listingCurrencyKey(item.listing) === currencyFilter)
-  }
+  const filtered = items.filter((item) =>
+    passesPriceFilter(
+      item.listing.price,
+      item.listing.currency,
+      filterCurrency,
+      minPrice,
+      maxPrice,
+    ),
+  )
 
   return [...filtered].sort((a, b) => {
-    if (sort === 'price-asc' || sort === 'price-desc') {
-      const priceCmp = compareByPrice(a, b, sort)
-      if (priceCmp !== 0) return priceCmp
-    } else {
-      const activityCmp = b.activityAt - a.activityAt
-      if (activityCmp !== 0) return activityCmp
-    }
-
-    const reliabilityCmp = compareByReliability(a, b, listingCountByOwner)
+    const reliabilityCmp =
+      ownerReliabilityScore(b, listingCountByOwner) -
+      ownerReliabilityScore(a, listingCountByOwner)
     if (reliabilityCmp !== 0) return reliabilityCmp
-
     return b.activityAt - a.activityAt
   })
 }
@@ -132,8 +94,13 @@ export function LatestView({
 }: LatestViewProps) {
   const [window, setWindow] = useState<FeedTimeWindow>('7d')
   const [typeFilter, setTypeFilter] = useState<FeedTypeFilter>('all')
-  const [sort, setSort] = useState<LatestSort>('activity')
-  const [currencyFilter, setCurrencyFilter] = useState<string>('all')
+  const [filterCurrency, setFilterCurrency] = useState<FilterCurrency>('AMD')
+  const [minPriceInput, setMinPriceInput] = useState('')
+  const [maxPriceInput, setMaxPriceInput] = useState('')
+
+  const minPrice = parsePriceInput(minPriceInput)
+  const maxPrice = parsePriceInput(maxPriceInput)
+  const priceFilterActive = minPrice != null || maxPrice != null
 
   const listingCountByOwner = useMemo(() => {
     const counts = new Map<string, number>()
@@ -149,15 +116,6 @@ export function LatestView({
     [listings, owners, searchListings, window, typeFilter],
   )
 
-  const currencyOptions = useMemo(() => {
-    const keys = new Set<string>()
-    for (const item of items) {
-      const key = listingCurrencyKey(item.listing)
-      if (key) keys.add(key)
-    }
-    return [...keys].sort((a, b) => currencyLabel(a).localeCompare(currencyLabel(b)))
-  }, [items])
-
   const counts = useMemo(
     () => ({
       created: items.filter((item) => item.activityType === 'created').length,
@@ -167,16 +125,31 @@ export function LatestView({
   )
 
   const visibleItems = useMemo(
-    () => sortFeedItems(items, sort, currencyFilter, listingCountByOwner),
-    [items, sort, currencyFilter, listingCountByOwner],
+    () =>
+      filterAndSortFeedItems(
+        items,
+        filterCurrency,
+        minPrice,
+        maxPrice,
+        listingCountByOwner,
+      ),
+    [items, filterCurrency, minPrice, maxPrice, listingCountByOwner],
   )
 
-  const sortDescription =
-    sort === 'price-asc'
-      ? 'Sorted by price (low → high), then owner reliability'
-      : sort === 'price-desc'
-        ? 'Sorted by price (high → low), then owner reliability'
-        : 'Sorted by list.am activity, then owner reliability'
+  const conversionHint = useMemo(() => {
+    if (!priceFilterActive) return null
+    return formatPriceRangeHints(minPrice, maxPrice, filterCurrency)
+  }, [priceFilterActive, minPrice, maxPrice, filterCurrency])
+
+  const exampleHint = useMemo(() => {
+    if (filterCurrency === 'AMD') {
+      return `Example: 500,000 AMD ≈ ${formatConversionHints(500_000, 'AMD').join(', ')}`
+    }
+    if (filterCurrency === 'USD') {
+      return `Example: $500 ≈ ${formatConversionHints(500, 'USD').join(', ')}`
+    }
+    return `Example: €500 ≈ ${formatConversionHints(500, 'EUR').join(', ')}`
+  }, [filterCurrency])
 
   return (
     <div className="latest-view">
@@ -185,13 +158,14 @@ export function LatestView({
           <p className="latest-eyebrow">Live inventory</p>
           <h2>Latest active posts</h2>
           <p className="latest-subtitle">
-            {sortDescription}. Dates come from list.am posted, renewed, and price-change fields.
+            Sorted by owner reliability. Price filters convert across AMD, USD, and EUR
+            (1 USD ≈ 1,000 AMD).
           </p>
         </div>
         <div className="latest-stats">
           <span>
             {visibleItems.length} shown
-            {currencyFilter !== 'all' && items.length !== visibleItems.length
+            {priceFilterActive && items.length !== visibleItems.length
               ? ` of ${items.length}`
               : ''}
           </span>
@@ -225,16 +199,15 @@ export function LatestView({
             </button>
           ))}
         </div>
-        <div className="latest-sort-row">
+        <div className="latest-price-filter">
           <label className="latest-select-label">
-            Currency
+            Filter currency
             <select
               className="latest-select"
-              value={currencyFilter}
-              onChange={(e) => setCurrencyFilter(e.target.value)}
+              value={filterCurrency}
+              onChange={(e) => setFilterCurrency(e.target.value as FilterCurrency)}
             >
-              <option value="all">All currencies</option>
-              {currencyOptions.map((code) => (
+              {FILTER_CURRENCIES.map((code) => (
                 <option key={code} value={code}>
                   {currencyLabel(code)}
                 </option>
@@ -242,19 +215,43 @@ export function LatestView({
             </select>
           </label>
           <label className="latest-select-label">
-            Sort
-            <select
-              className="latest-select"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as LatestSort)}
-            >
-              <option value="activity">Latest activity</option>
-              <option value="price-asc">Price: low → high</option>
-              <option value="price-desc">Price: high → low</option>
-            </select>
+            Min price
+            <input
+              className="latest-price-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="Any"
+              value={minPriceInput}
+              onChange={(e) => setMinPriceInput(e.target.value)}
+            />
           </label>
-          <span className="latest-sort-hint">Owner reliability always breaks ties</span>
+          <label className="latest-select-label">
+            Max price
+            <input
+              className="latest-price-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="Any"
+              value={maxPriceInput}
+              onChange={(e) => setMaxPriceInput(e.target.value)}
+            />
+          </label>
+          {(minPriceInput || maxPriceInput) && (
+            <button
+              type="button"
+              className="latest-clear-price"
+              onClick={() => {
+                setMinPriceInput('')
+                setMaxPriceInput('')
+              }}
+            >
+              Clear prices
+            </button>
+          )}
         </div>
+        <p className="latest-filter-hint muted small">
+          {conversionHint ?? exampleHint}
+        </p>
       </section>
 
       {loading && (
@@ -269,7 +266,7 @@ export function LatestView({
           <p className="muted">
             {items.length === 0
               ? 'Run detail analysis so posted/renewed dates are captured, or widen the time window.'
-              : 'Try a different currency filter or sort option.'}
+              : 'Try widening the price range or changing the filter currency.'}
           </p>
         </section>
       ) : (

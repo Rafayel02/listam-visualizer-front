@@ -91,7 +91,11 @@ export function DuplicateDetectionSection({
       )}
 
       {pairs.length === 0 && !isRunning && !loading ? (
-        <p className="analyze-empty">No duplicate pairs stored yet. Run detection after detail analysis.</p>
+        <p className="analyze-empty">
+          {job.status === 'completed'
+            ? 'Detection finished — no cross-owner duplicate posts matched (shared image URLs/IDs).'
+            : 'No duplicate pairs stored yet. Run detection after detail analysis.'}
+        </p>
       ) : (
         <div className="duplicate-pairs">
           {pairs.map((pair) => (

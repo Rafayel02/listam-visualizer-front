@@ -3,10 +3,11 @@ import { isApiConfigured } from './api/client'
 import { useDuplicateDetection } from './hooks/useDuplicateDetection'
 import { useScrapeData } from './hooks/useScrapeData'
 import { AnalyzeView } from './views/AnalyzeView'
+import { HistoryView } from './views/HistoryView'
 import { LatestView } from './views/LatestView'
 import './App.css'
 
-type Tab = 'analyze' | 'latest'
+type Tab = 'analyze' | 'latest' | 'history'
 
 function App() {
   const [tab, setTab] = useState<Tab>('analyze')
@@ -31,6 +32,13 @@ function App() {
             onClick={() => setTab('latest')}
           >
             Latest
+          </button>
+          <button
+            type="button"
+            className={tab === 'history' ? 'active' : ''}
+            onClick={() => setTab('history')}
+          >
+            History
           </button>
           <button type="button" onClick={() => void data.refresh()} disabled={data.loading}>
             {data.loading ? 'Loading…' : 'Refresh'}
@@ -71,6 +79,7 @@ function App() {
             loading={data.loading}
           />
         )}
+        {tab === 'history' && <HistoryView loading={data.loading} />}
       </main>
     </div>
   )

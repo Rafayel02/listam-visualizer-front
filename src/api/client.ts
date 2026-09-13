@@ -37,6 +37,32 @@ export async function fetchSearchListings(searchId?: string): Promise<SearchList
   return getJson(`/api/search-listings${query}`)
 }
 
+export type HistoryEventKind = 'added' | 'removed' | 'updated'
+
+export interface HistoryEvent {
+  id: string
+  kind: HistoryEventKind
+  listingId: string
+  title?: string
+  url: string
+  summary: string
+  changedAt: number
+  date: string
+}
+
+export interface DailyHistoryGroup {
+  date: string
+  label: string
+  events: HistoryEvent[]
+}
+
+export async function fetchChangeHistory(days = 14): Promise<{
+  days: DailyHistoryGroup[]
+  totalEvents: number
+}> {
+  return getJson(`/api/changes/history?days=${days}`)
+}
+
 export async function fetchOverview(): Promise<{
   searches: number
   listings: number

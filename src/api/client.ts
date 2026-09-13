@@ -50,17 +50,37 @@ export interface HistoryEvent {
   date: string
 }
 
-export interface DailyHistoryGroup {
+export interface DaySummary {
+  date: string
+  label: string
+  totalEvents: number
+}
+
+export interface DayEventsPage {
   date: string
   label: string
   events: HistoryEvent[]
+  page: number
+  limit: number
+  total: number
+  totalPages: number
 }
 
-export async function fetchChangeHistory(days = 14): Promise<{
-  days: DailyHistoryGroup[]
+export async function fetchChangeHistorySummary(days = 14): Promise<{
+  days: DaySummary[]
   totalEvents: number
 }> {
   return getJson(`/api/changes/history?days=${days}`)
+}
+
+export async function fetchChangeHistoryDay(
+  date: string,
+  page = 1,
+  limit = 200,
+): Promise<DayEventsPage> {
+  return getJson(
+    `/api/changes/history?date=${encodeURIComponent(date)}&page=${page}&limit=${limit}`,
+  )
 }
 
 export async function fetchOverview(): Promise<{

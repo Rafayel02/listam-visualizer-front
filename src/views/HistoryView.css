@@ -135,6 +135,44 @@
   border-left-color: #6366f1;
 }
 
+.history-day-loading {
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+}
+
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.history-pagination button {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.history-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.history-page-info {
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.history-page-size {
+  color: #94a3b8;
+}
+
 .history-empty {
   text-align: center;
   padding: 2rem 1rem;

@@ -96,6 +96,12 @@ export interface DayOwnersPage {
   label: string
   owners: OwnerDaySummary[]
   totalOwners: number
+  totalActions: number
+  actionOffset: number
+  actionLimit: number
+  nextActionOffset: number
+  hasMore: boolean
+  loadedActionCount: number
 }
 
 export interface OwnerDayEventsPage {
@@ -146,9 +152,13 @@ export async function fetchChangeHistoryDay(
   )
 }
 
-export async function fetchChangeHistoryOwners(date: string): Promise<DayOwnersPage> {
+export async function fetchChangeHistoryOwners(
+  date: string,
+  actionOffset = 0,
+  actionLimit = 200,
+): Promise<DayOwnersPage> {
   return getJson(
-    `/api/changes/history?date=${encodeURIComponent(date)}&view=owners`,
+    `/api/changes/history?date=${encodeURIComponent(date)}&view=owners&actionOffset=${actionOffset}&actionLimit=${actionLimit}`,
   )
 }
 

@@ -220,7 +220,10 @@ function OwnerSection({ date, owner }: OwnerSectionProps) {
             )}
             <ReputationBadge reputation={owner.reputation} />
           </div>
-          <span className="history-owner-total">{owner.counts.total} actions</span>
+          <span className="history-owner-total">
+            {owner.counts.total} action{owner.counts.total === 1 ? '' : 's'}
+            {owner.counts.total > PAGE_SIZE ? ` · expand for ${PAGE_SIZE} per page` : ''}
+          </span>
         </div>
         <ActionBadges counts={owner.counts} />
         <span className="history-owner-toggle">{expanded ? '▾' : '▸'}</span>
@@ -243,10 +246,23 @@ interface DaySectionProps {
   mode: HistoryViewMode
 }
 
+function mergeOwners(
+  current: OwnerDaySummary[],
+  incoming: OwnerDaySummary[],
+): OwnerDaySummary[] {
+  const seen = new Set(current.map((owner) => owner.ownerId))
+  const added = incoming.filter((owner) => !seen.has(owner.ownerId))
+  return [...current, ...added]
+}
+
 function DaySection({ summary, mode }: DaySectionProps) {
   const [page, setPage] = useState(1)
   const [events, setEvents] = useState<HistoryEvent[]>([])
   const [owners, setOwners] = useState<OwnerDaySummary[]>([])
+  const [totalOwners, setTotalOwners] = useState(0)
+  const [nextActionOffset, setNextActionOffset] = useState(0)
+  const [hasMoreOwners, setHasMoreOwners] = useState(false)
+  const [loadingMoreOwners, setLoadingMoreOwners] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -267,28 +283,43 @@ function DaySection({ summary, mode }: DaySectionProps) {
     [summary.date],
   )
 
-  const loadOwners = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    void fetchChangeHistoryOwners(summary.date)
-      .then((data) => {
-        setOwners(data.owners)
-      })
-      .catch((err) => setError((err as Error).message))
-      .finally(() => setLoading(false))
-  }, [summary.date])
+  const loadOwnersBatch = useCallback(
+    (actionOffset: number, append: boolean) => {
+      const setBusy = append ? setLoadingMoreOwners : setLoading
+      setBusy(true)
+      setError(null)
+      void fetchChangeHistoryOwners(summary.date, actionOffset, PAGE_SIZE)
+        .then((data) => {
+          setOwners((current) => (append ? mergeOwners(current, data.owners) : data.owners))
+          setTotalOwners(data.totalOwners)
+          setNextActionOffset(data.nextActionOffset)
+          setHasMoreOwners(data.hasMore)
+        })
+        .catch((err) => setError((err as Error).message))
+        .finally(() => setBusy(false))
+    },
+    [summary.date],
+  )
+
+  const loadMoreOwners = useCallback(() => {
+    if (!hasMoreOwners || loadingMoreOwners) return
+    loadOwnersBatch(nextActionOffset, true)
+  }, [hasMoreOwners, loadingMoreOwners, loadOwnersBatch, nextActionOffset])
 
   useEffect(() => {
     if (mode === 'timeline') {
       loadTimelinePage(1)
       return
     }
-    loadOwners()
-  }, [mode, loadTimelinePage, loadOwners])
+    setOwners([])
+    setNextActionOffset(0)
+    setHasMoreOwners(false)
+    loadOwnersBatch(0, false)
+  }, [mode, loadTimelinePage, loadOwnersBatch])
 
   const dayMeta =
     mode === 'owners'
-      ? `${owners.length} owners · ${summary.totalEvents} actions`
+      ? `${owners.length} of ${totalOwners} owners shown · ${summary.totalEvents} actions`
       : `${summary.totalEvents} changes`
 
   return (
@@ -317,11 +348,27 @@ function DaySection({ summary, mode }: DaySectionProps) {
       )}
 
       {mode === 'owners' && !loading && !error && owners.length > 0 && (
-        <div className="history-owner-list">
-          {owners.map((owner) => (
-            <OwnerSection key={owner.ownerId} date={summary.date} owner={owner} />
-          ))}
-        </div>
+        <>
+          <div className="history-owner-list">
+            {owners.map((owner) => (
+              <OwnerSection key={owner.ownerId} date={summary.date} owner={owner} />
+            ))}
+          </div>
+          {hasMoreOwners && (
+            <div className="history-load-more">
+              <button
+                type="button"
+                onClick={loadMoreOwners}
+                disabled={loadingMoreOwners}
+              >
+                {loadingMoreOwners ? 'Loading…' : 'Load more owners'}
+              </button>
+              <span className="history-load-more-meta">
+                Up to {PAGE_SIZE} actions per batch
+              </span>
+            </div>
+          )}
+        </>
       )}
     </section>
   )
@@ -367,7 +414,7 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
           <h2>Daily change history</h2>
           <p className="history-subtitle">
             {mode === 'owners'
-              ? 'Per-owner daily actions sorted by reputation — added, removed, price, images, and more.'
+              ? 'Per-owner daily actions sorted by reputation — load more in batches of up to 200 actions.'
               : mode === 'correlation'
                 ? 'How owner reputation relates to listing changes — Pearson correlation across sellers.'
                 : 'All changes in chronological order · up to 200 events per page.'}

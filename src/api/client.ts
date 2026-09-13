@@ -163,6 +163,55 @@ export async function fetchOwnerChangeHistoryDay(
   )
 }
 
+export interface ActionCorrelation {
+  action: OwnerActionCategory | 'total' | 'updates'
+  label: string
+  r: number
+  n: number
+}
+
+export interface CorrelationCell {
+  x: string
+  y: string
+  value: number
+}
+
+export interface ReputationTierStat {
+  label: string
+  minScore: number
+  ownerCount: number
+  avgAdded: number
+  avgRemoved: number
+  avgPrice: number
+  avgImages: number
+  avgTotal: number
+}
+
+export interface ReputationScatterPoint {
+  id: string
+  x: number
+  y: number
+  label: string
+}
+
+export interface ReputationChangeCorrelation {
+  days: number
+  ownerCount: number
+  totalEvents: number
+  reputationCorrelations: ActionCorrelation[]
+  correlationLabels: string[]
+  correlationMatrix: CorrelationCell[]
+  tiers: ReputationTierStat[]
+  scatterTotal: ReputationScatterPoint[]
+  scatterPrice: ReputationScatterPoint[]
+}
+
+export async function fetchChangeHistoryCorrelation(
+  days = 14,
+): Promise<ReputationChangeCorrelation> {
+  return getJson(`/api/changes/correlation?days=${days}`)
+}
+
 export async function fetchOverview(): Promise<{
   searches: number
   listings: number

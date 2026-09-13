@@ -13,11 +13,12 @@ import {
   type OwnerDaySummary,
   type OwnerReputation,
 } from '../api/client'
+import { HistoryCorrelationSection } from './HistoryCorrelationSection'
 import './HistoryView.css'
 
 const PAGE_SIZE = 200
 
-type HistoryViewMode = 'timeline' | 'owners'
+type HistoryViewMode = 'timeline' | 'owners' | 'correlation'
 
 interface HistoryViewProps {
   loading?: boolean
@@ -367,7 +368,9 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
           <p className="history-subtitle">
             {mode === 'owners'
               ? 'Per-owner daily actions sorted by reputation — added, removed, price, images, and more.'
-              : 'All changes in chronological order · up to 200 events per page.'}
+              : mode === 'correlation'
+                ? 'How owner reputation relates to listing changes — Pearson correlation across sellers.'
+                : 'All changes in chronological order · up to 200 events per page.'}
           </p>
         </div>
         <div className="history-controls">
@@ -385,6 +388,13 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
               onClick={() => setMode('timeline')}
             >
               Timeline
+            </button>
+            <button
+              type="button"
+              className={mode === 'correlation' ? 'active' : ''}
+              onClick={() => setMode('correlation')}
+            >
+              Correlation
             </button>
           </div>
           <label className="history-days-label">
@@ -419,7 +429,9 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
         </section>
       )}
 
-      {!isLoading && !error && summaries.length === 0 && (
+      {mode === 'correlation' && <HistoryCorrelationSection days={days} />}
+
+      {mode !== 'correlation' && !isLoading && !error && summaries.length === 0 && (
         <section className="panel history-empty">
           <h3>No changes in this period</h3>
           <p className="muted">
@@ -428,7 +440,8 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
         </section>
       )}
 
-      {!isLoading &&
+      {mode !== 'correlation' &&
+        !isLoading &&
         summaries.map((summary) => (
           <DaySection key={`${summary.date}-${mode}`} summary={summary} mode={mode} />
         ))}

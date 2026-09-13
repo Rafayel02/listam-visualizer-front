@@ -76,10 +76,18 @@ export interface HistoryEvent {
   date: string
 }
 
+export interface OwnerReputation {
+  score: number
+  label: string
+  rating?: number
+  reviewCount?: number
+}
+
 export interface OwnerDaySummary {
   ownerId: string
   ownerName?: string
   ownerProfileUrl?: string
+  reputation: OwnerReputation
   counts: OwnerActionCounts
 }
 

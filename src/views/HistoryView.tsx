@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { reliabilityColor } from '../analytics/ownerAnalytics'
 import {
   fetchChangeHistoryDay,
   fetchChangeHistoryOwners,
@@ -10,6 +11,7 @@ import {
   type OwnerActionCategory,
   type OwnerActionCounts,
   type OwnerDaySummary,
+  type OwnerReputation,
 } from '../api/client'
 import './HistoryView.css'
 
@@ -61,6 +63,26 @@ function formatTime(ms: number): string {
 function displayOwnerName(owner: Pick<OwnerDaySummary, 'ownerId' | 'ownerName'>): string {
   if (owner.ownerId === UNKNOWN_OWNER_ID) return 'Unknown owner'
   return owner.ownerName || owner.ownerId
+}
+
+function ReputationBadge({ reputation }: { reputation: OwnerReputation }) {
+  const ratingText =
+    reputation.rating != null
+      ? ` · ${reputation.rating.toFixed(1)}★`
+      : reputation.reviewCount != null
+        ? ` · ${reputation.reviewCount} reviews`
+        : ''
+
+  return (
+    <span
+      className="history-reputation"
+      style={{ color: reliabilityColor(reputation.score) }}
+      title={`${reputation.label}${ratingText}`}
+    >
+      {reputation.score} · {reputation.label}
+      {ratingText}
+    </span>
+  )
 }
 
 function ActionBadges({ counts }: { counts: OwnerActionCounts }) {
@@ -181,19 +203,22 @@ function OwnerSection({ date, owner }: OwnerSectionProps) {
         aria-expanded={expanded}
       >
         <div className="history-owner-title-wrap">
-          {profileHref ? (
-            <a
-              href={profileHref}
-              target="_blank"
-              rel="noreferrer"
-              className="history-owner-name"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {ownerLabel}
-            </a>
-          ) : (
-            <span className="history-owner-name">{ownerLabel}</span>
-          )}
+          <div className="history-owner-name-row">
+            {profileHref ? (
+              <a
+                href={profileHref}
+                target="_blank"
+                rel="noreferrer"
+                className="history-owner-name"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {ownerLabel}
+              </a>
+            ) : (
+              <span className="history-owner-name">{ownerLabel}</span>
+            )}
+            <ReputationBadge reputation={owner.reputation} />
+          </div>
           <span className="history-owner-total">{owner.counts.total} actions</span>
         </div>
         <ActionBadges counts={owner.counts} />
@@ -341,7 +366,7 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
           <h2>Daily change history</h2>
           <p className="history-subtitle">
             {mode === 'owners'
-              ? 'Per-owner daily actions — added, removed, price, images, and more.'
+              ? 'Per-owner daily actions sorted by reputation — added, removed, price, images, and more.'
               : 'All changes in chronological order · up to 200 events per page.'}
           </p>
         </div>

@@ -36,6 +36,32 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.history-mode-toggle {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.history-mode-toggle button {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: #fff;
+  color: #475569;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.history-mode-toggle button.active {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.history-mode-toggle button:not(.active):hover {
+  background: #f8fafc;
 }
 
 .history-days-label {
@@ -178,9 +204,126 @@
   padding: 2rem 1rem;
 }
 
+.history-owner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-owner-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.history-owner-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  background: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-owner-header:hover {
+  background: #f1f5f9;
+}
+
+.history-owner-title-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.history-owner-name {
+  font-weight: 600;
+  color: #1d4ed8;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.history-owner-name:hover {
+  text-decoration: underline;
+}
+
+.history-owner-total {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.history-owner-toggle {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.history-owner-body {
+  padding: 0.5rem 0.75rem 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.history-action-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.history-action-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.history-action-added {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.history-action-removed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.history-action-price {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.history-action-images {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.history-action-title,
+.history-action-description,
+.history-action-location,
+.history-action-other {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 @media (max-width: 640px) {
   .history-item {
     flex-direction: column;
     gap: 0.25rem;
+  }
+
+  .history-owner-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .history-action-badges {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }

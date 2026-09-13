@@ -39,6 +39,28 @@ export async function fetchSearchListings(searchId?: string): Promise<SearchList
 
 export type HistoryEventKind = 'added' | 'removed' | 'updated'
 
+export type OwnerActionCategory =
+  | 'added'
+  | 'removed'
+  | 'price'
+  | 'images'
+  | 'title'
+  | 'description'
+  | 'location'
+  | 'other'
+
+export interface OwnerActionCounts {
+  added: number
+  removed: number
+  price: number
+  images: number
+  title: number
+  description: number
+  location: number
+  other: number
+  total: number
+}
+
 export interface HistoryEvent {
   id: string
   kind: HistoryEventKind
@@ -46,9 +68,42 @@ export interface HistoryEvent {
   title?: string
   url: string
   summary: string
+  action: OwnerActionCategory
+  ownerId?: string
+  ownerName?: string
+  ownerProfileUrl?: string
   changedAt: number
   date: string
 }
+
+export interface OwnerDaySummary {
+  ownerId: string
+  ownerName?: string
+  ownerProfileUrl?: string
+  counts: OwnerActionCounts
+}
+
+export interface DayOwnersPage {
+  date: string
+  label: string
+  owners: OwnerDaySummary[]
+  totalOwners: number
+}
+
+export interface OwnerDayEventsPage {
+  date: string
+  label: string
+  ownerId: string
+  ownerName?: string
+  ownerProfileUrl?: string
+  events: HistoryEvent[]
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export const UNKNOWN_OWNER_ID = '_unknown'
 
 export interface DaySummary {
   date: string
@@ -80,6 +135,23 @@ export async function fetchChangeHistoryDay(
 ): Promise<DayEventsPage> {
   return getJson(
     `/api/changes/history?date=${encodeURIComponent(date)}&page=${page}&limit=${limit}`,
+  )
+}
+
+export async function fetchChangeHistoryOwners(date: string): Promise<DayOwnersPage> {
+  return getJson(
+    `/api/changes/history?date=${encodeURIComponent(date)}&view=owners`,
+  )
+}
+
+export async function fetchOwnerChangeHistoryDay(
+  date: string,
+  ownerId: string,
+  page = 1,
+  limit = 200,
+): Promise<OwnerDayEventsPage> {
+  return getJson(
+    `/api/changes/history?date=${encodeURIComponent(date)}&ownerId=${encodeURIComponent(ownerId)}&page=${page}&limit=${limit}`,
   )
 }
 

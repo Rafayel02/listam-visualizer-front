@@ -4,8 +4,10 @@ import {
   fetchChangeHistoryDay,
   fetchChangeHistoryOwners,
   fetchChangeHistorySummary,
+  fetchDayActivitySummary,
   fetchOwnerChangeHistoryDay,
   UNKNOWN_OWNER_ID,
+  type DayActivitySummary,
   type DaySummary,
   type HistoryEvent,
   type OwnerActionCategory,
@@ -13,6 +15,7 @@ import {
   type OwnerDaySummary,
   type OwnerReputation,
 } from '../api/client'
+import { DayActivitySummaryPanel } from './DayActivitySummaryPanel'
 import { HistoryCorrelationSection } from './HistoryCorrelationSection'
 import './HistoryView.css'
 
@@ -259,13 +262,16 @@ function DaySection({ summary, mode }: DaySectionProps) {
   const [page, setPage] = useState(1)
   const [events, setEvents] = useState<HistoryEvent[]>([])
   const [owners, setOwners] = useState<OwnerDaySummary[]>([])
+  const [dayActivity, setDayActivity] = useState<DayActivitySummary | null>(null)
   const [totalOwners, setTotalOwners] = useState(0)
   const [nextActionOffset, setNextActionOffset] = useState(0)
   const [hasMoreOwners, setHasMoreOwners] = useState(false)
   const [loadingMoreOwners, setLoadingMoreOwners] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [loadingSummary, setLoadingSummary] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
 
   const loadTimelinePage = useCallback(
     (nextPage: number) => {
@@ -307,6 +313,28 @@ function DaySection({ summary, mode }: DaySectionProps) {
   }, [hasMoreOwners, loadingMoreOwners, loadOwnersBatch, nextActionOffset])
 
   useEffect(() => {
+    let cancelled = false
+    setLoadingSummary(true)
+    void fetchDayActivitySummary(summary.date)
+      .then((data) => {
+        if (cancelled) return
+        setDayActivity(data.summary)
+        setSummaryError(null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setSummaryError((err as Error).message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSummary(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [summary.date])
+
+  useEffect(() => {
     if (mode === 'timeline') {
       loadTimelinePage(1)
       return
@@ -328,6 +356,12 @@ function DaySection({ summary, mode }: DaySectionProps) {
         <h3>{summary.label}</h3>
         <span className="history-day-count">{dayMeta}</span>
       </header>
+
+      {loadingSummary && <p className="muted history-day-loading">Loading summary…</p>}
+      {summaryError && <p className="error">{summaryError}</p>}
+      {!loadingSummary && !summaryError && dayActivity && (
+        <DayActivitySummaryPanel summary={dayActivity} />
+      )}
 
       {loading && <p className="muted history-day-loading">Loading…</p>}
       {error && <p className="error">{error}</p>}

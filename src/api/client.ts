@@ -91,6 +91,27 @@ export interface OwnerDaySummary {
   counts: OwnerActionCounts
 }
 
+export interface ReputationTierBreakdown {
+  tier: string
+  label: string
+  minScore: number | null
+  maxScore: number | null
+  ownerCount: number
+  counts: OwnerActionCounts
+}
+
+export interface DayActivitySummary {
+  totals: OwnerActionCounts
+  byReputation: ReputationTierBreakdown[]
+  ownerCount: number
+}
+
+export interface DayActivitySummaryPage {
+  date: string
+  label: string
+  summary: DayActivitySummary
+}
+
 export interface DayOwnersPage {
   date: string
   label: string
@@ -150,6 +171,10 @@ export async function fetchChangeHistoryDay(
   return getJson(
     `/api/changes/history?date=${encodeURIComponent(date)}&page=${page}&limit=${limit}`,
   )
+}
+
+export async function fetchDayActivitySummary(date: string): Promise<DayActivitySummaryPage> {
+  return getJson(`/api/changes/history?date=${encodeURIComponent(date)}&view=summary`)
 }
 
 export async function fetchChangeHistoryOwners(

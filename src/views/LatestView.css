@@ -220,6 +220,21 @@
   font-size: 0.9rem;
 }
 
+.latest-district-link {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.latest-district-link:hover {
+  color: #1d4ed8;
+}
+
 .latest-detail-badge {
   background: #eef2ff;
   color: #4338ca;

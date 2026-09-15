@@ -52,17 +52,22 @@ function filterAndSortFeedItems(
   maxPrice: number | undefined,
   listingCountByOwner: Map<string, number>,
   rates: ExchangeRates,
+  districtFilter: string | null,
 ): ActiveFeedItem[] {
-  const filtered = items.filter((item) =>
-    passesPriceFilter(
+  const filtered = items.filter((item) => {
+    if (districtFilter) {
+      const district = item.listing.district?.trim() ?? ''
+      if (district !== districtFilter) return false
+    }
+    return passesPriceFilter(
       item.listing.price,
       item.listing.currency,
       filterCurrency,
       rates,
       minPrice,
       maxPrice,
-    ),
-  )
+    )
+  })
 
   return [...filtered].sort((a, b) => {
     const reliabilityCmp =
@@ -105,10 +110,12 @@ export function LatestView({
   const [filterCurrency, setFilterCurrency] = useState<FilterCurrency>('AMD')
   const [minPriceInput, setMinPriceInput] = useState('')
   const [maxPriceInput, setMaxPriceInput] = useState('')
+  const [districtFilter, setDistrictFilter] = useState<string | null>(null)
 
   const minPrice = parsePriceInput(minPriceInput)
   const maxPrice = parsePriceInput(maxPriceInput)
   const priceFilterActive = minPrice != null || maxPrice != null
+  const extraFiltersActive = priceFilterActive || districtFilter != null
 
   const listingById = useMemo(() => new Map(listings.map((l) => [l.id, l])), [listings])
 
@@ -134,6 +141,18 @@ export function LatestView({
     [items],
   )
 
+  const availableDistricts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      const district = item.listing.district?.trim()
+      if (!district) continue
+      counts.set(district, (counts.get(district) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }))
+      .map(([district, count]) => ({ district, count }))
+  }, [items])
+
   const visibleItems = useMemo(
     () =>
       filterAndSortFeedItems(
@@ -143,8 +162,9 @@ export function LatestView({
         maxPrice,
         listingCountByOwner,
         rates,
+        districtFilter,
       ),
-    [items, filterCurrency, minPrice, maxPrice, listingCountByOwner, rates],
+    [items, filterCurrency, minPrice, maxPrice, listingCountByOwner, rates, districtFilter],
   )
 
   const conversionHint = useMemo(() => {
@@ -176,7 +196,7 @@ export function LatestView({
         <div className="latest-stats">
           <span>
             {visibleItems.length} shown
-            {priceFilterActive && items.length !== visibleItems.length
+            {extraFiltersActive && items.length !== visibleItems.length
               ? ` of ${items.length}`
               : ''}
           </span>
@@ -211,6 +231,23 @@ export function LatestView({
           ))}
         </div>
         <div className="latest-price-filter">
+          {availableDistricts.length > 0 && (
+            <label className="latest-select-label">
+              District
+              <select
+                className="latest-select"
+                value={districtFilter ?? ''}
+                onChange={(e) => setDistrictFilter(e.target.value || null)}
+              >
+                <option value="">All districts ({items.length})</option>
+                {availableDistricts.map(({ district, count }) => (
+                  <option key={district} value={district}>
+                    {district} ({count})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="latest-select-label">
             Filter currency
             <select
@@ -247,16 +284,17 @@ export function LatestView({
               onChange={(e) => setMaxPriceInput(e.target.value)}
             />
           </label>
-          {(minPriceInput || maxPriceInput) && (
+          {(minPriceInput || maxPriceInput || districtFilter) && (
             <button
               type="button"
               className="latest-clear-price"
               onClick={() => {
                 setMinPriceInput('')
                 setMaxPriceInput('')
+                setDistrictFilter(null)
               }}
             >
-              Clear prices
+              Clear filters
             </button>
           )}
         </div>
@@ -281,7 +319,7 @@ export function LatestView({
           <p className="muted">
             {items.length === 0
               ? 'Run detail analysis in scrape-front, sync to backend, then refresh. Card-only listings are not shown here.'
-              : 'Try widening the price range or changing the filter currency.'}
+              : 'Try another district, widen the price range, or change the filter currency.'}
           </p>
         </section>
       ) : (
@@ -325,7 +363,15 @@ export function LatestView({
                   <strong>{formatPrice(item.listing)}</strong>
                   {item.listing.rooms != null && <span>{item.listing.rooms} rm</span>}
                   {item.listing.areaSqm != null && <span>{item.listing.areaSqm} m²</span>}
-                  {item.listing.district && <span>{item.listing.district}</span>}
+                  {item.listing.district && (
+                    <button
+                      type="button"
+                      className="latest-district-link"
+                      onClick={() => setDistrictFilter(item.listing.district!.trim())}
+                    >
+                      {item.listing.district}
+                    </button>
+                  )}
                   {detailEnrichmentLabel(item.listing) && (
                     <span className="latest-detail-badge">{detailEnrichmentLabel(item.listing)}</span>
                   )}

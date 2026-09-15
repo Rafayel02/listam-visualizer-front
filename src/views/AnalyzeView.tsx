@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  availableDistricts,
   buildAnalysisSnapshot,
   formatCompact,
   formatPrice,
@@ -47,10 +48,23 @@ export function AnalyzeView({
   const [mode, setMode] = useState<AnalyzeMode>('listings')
   const [kind, setKind] = useState<ListingKind>('sale')
   const [includeRemoved, setIncludeRemoved] = useState(false)
+  const [districtFilter, setDistrictFilter] = useState<string | null>(null)
+
+  const districts = useMemo(
+    () => availableDistricts(listings, kind, includeRemoved),
+    [listings, kind, includeRemoved],
+  )
+
+  useEffect(() => {
+    if (!districtFilter) return
+    if (!districts.some((row) => row.district === districtFilter)) {
+      setDistrictFilter(null)
+    }
+  }, [districtFilter, districts])
 
   const analysis = useMemo(
-    () => buildAnalysisSnapshot(listings, owners, kind, includeRemoved),
-    [listings, owners, kind, includeRemoved],
+    () => buildAnalysisSnapshot(listings, owners, kind, includeRemoved, districtFilter),
+    [listings, owners, kind, includeRemoved, districtFilter],
   )
 
   const enrichedPct = analysis.totalListings
@@ -99,6 +113,22 @@ export function AnalyzeView({
               </button>
             ))}
           </div>
+          {districts.length > 0 && (
+            <label className="analyze-district-filter">
+              District
+              <select
+                value={districtFilter ?? ''}
+                onChange={(e) => setDistrictFilter(e.target.value || null)}
+              >
+                <option value="">All districts</option>
+                {districts.map(({ district, count }) => (
+                  <option key={district} value={district}>
+                    {district} ({count})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="analyze-checkbox">
             <input
               type="checkbox"
@@ -128,6 +158,7 @@ export function AnalyzeView({
           owners={owners}
           kind={kind}
           includeRemoved={includeRemoved}
+          district={districtFilter}
         />
       ) : analysis.withPrice === 0 ? (
         <section className="analyze-panel analyze-empty-state">

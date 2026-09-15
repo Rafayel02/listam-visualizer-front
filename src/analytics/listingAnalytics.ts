@@ -232,15 +232,37 @@ export function filterListings(
   listings: Listing[],
   kind: ListingKind,
   includeRemoved: boolean,
+  district?: string | null,
 ): Listing[] {
+  const districtFilter = district?.trim() || null
   return listings.filter((listing) => {
     if (!includeRemoved && (listing.isRemoved || listing.enrichmentStatus === 'removed')) {
       return false
     }
     if (kind === 'sale' && listing.isMonthly) return false
     if (kind === 'rent' && !listing.isMonthly) return false
+    if (districtFilter) {
+      const value = listing.district?.trim() ?? ''
+      if (value !== districtFilter) return false
+    }
     return true
   })
+}
+
+export function availableDistricts(
+  listings: Listing[],
+  kind: ListingKind,
+  includeRemoved: boolean,
+): Array<{ district: string; count: number }> {
+  const counts = new Map<string, number>()
+  for (const listing of filterListings(listings, kind, includeRemoved)) {
+    const district = listing.district?.trim()
+    if (!district) continue
+    counts.set(district, (counts.get(district) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }))
+    .map(([district, count]) => ({ district, count }))
 }
 
 export function buildAnalysisSnapshot(
@@ -248,8 +270,9 @@ export function buildAnalysisSnapshot(
   owners: Owner[],
   kind: ListingKind,
   includeRemoved: boolean,
+  district?: string | null,
 ): AnalysisSnapshot {
-  const filtered = filterListings(listings, kind, includeRemoved)
+  const filtered = filterListings(listings, kind, includeRemoved, district)
   const ownersById = new Map(owners.map((owner) => [owner.id, owner]))
 
   const points: AnalysisPoint[] = filtered

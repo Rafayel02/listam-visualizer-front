@@ -233,8 +233,9 @@ export function buildOwnerAnalysisSnapshot(
   owners: Owner[],
   kind: ListingKind,
   includeRemoved: boolean,
+  district?: string | null,
 ): OwnerAnalysisSnapshot {
-  const filtered = filterListings(listings, kind, includeRemoved)
+  const filtered = filterListings(listings, kind, includeRemoved, district)
   const listingsByOwner = new Map<string, Listing[]>()
 
   for (const listing of filtered) {

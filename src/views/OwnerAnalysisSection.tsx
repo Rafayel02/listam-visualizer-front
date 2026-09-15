@@ -23,6 +23,7 @@ interface OwnerAnalysisSectionProps {
   owners: Owner[]
   kind: ListingKind
   includeRemoved: boolean
+  district?: string | null
 }
 
 export function OwnerAnalysisSection({
@@ -30,13 +31,14 @@ export function OwnerAnalysisSection({
   owners,
   kind,
   includeRemoved,
+  district = null,
 }: OwnerAnalysisSectionProps) {
   const [typeFilter, setTypeFilter] = useState<OwnerTypeFilter>('all')
   const [sortBy, setSortBy] = useState<'reliability' | 'posts' | 'rating' | 'confidence'>('reliability')
 
   const analysis = useMemo(
-    () => buildOwnerAnalysisSnapshot(listings, owners, kind, includeRemoved),
-    [listings, owners, kind, includeRemoved],
+    () => buildOwnerAnalysisSnapshot(listings, owners, kind, includeRemoved, district),
+    [listings, owners, kind, includeRemoved, district],
   )
 
   const visibleRows = useMemo(() => {

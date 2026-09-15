@@ -112,6 +112,23 @@
   font-size: 0.9rem;
 }
 
+.analyze-district-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--analyze-muted);
+  font-size: 0.9rem;
+}
+
+.analyze-district-filter select {
+  min-width: 12rem;
+  max-width: 18rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--analyze-border);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+}
 .analyze-kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

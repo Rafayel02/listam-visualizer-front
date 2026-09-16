@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { enumParam, numberParam, useSearchParam } from '../hooks/useUrlQuery'
 import { reliabilityColor } from '../analytics/ownerAnalytics'
 import {
   fetchChangeHistoryDay,
@@ -409,8 +410,14 @@ function DaySection({ summary, mode }: DaySectionProps) {
 }
 
 export function HistoryView({ loading: parentLoading = false }: HistoryViewProps) {
-  const [days, setDays] = useState(14)
-  const [mode, setMode] = useState<HistoryViewMode>('owners')
+  const [days, setDays] = useSearchParam('days', {
+    defaultValue: 14,
+    ...numberParam([7, 14, 30, 60, 90], 14),
+  })
+  const [mode, setMode] = useSearchParam<HistoryViewMode>('history', {
+    defaultValue: 'owners',
+    ...enumParam(['timeline', 'owners', 'correlation'] as const, 'owners'),
+  })
   const [summaries, setSummaries] = useState<DaySummary[]>([])
   const [totalEvents, setTotalEvents] = useState(0)
   const [loading, setLoading] = useState(true)

@@ -1,16 +1,22 @@
-import { useState } from 'react'
 import { isApiConfigured } from './api/client'
+import { ShareLinkButton } from './components/ShareLinkButton'
 import { useDuplicateDetection } from './hooks/useDuplicateDetection'
 import { useScrapeData } from './hooks/useScrapeData'
+import { enumParam, useSearchParam } from './hooks/useUrlQuery'
 import { AnalyzeView } from './views/AnalyzeView'
 import { HistoryView } from './views/HistoryView'
 import { LatestView } from './views/LatestView'
 import './App.css'
 
-type Tab = 'analyze' | 'latest' | 'history'
+const TABS = ['analyze', 'latest', 'history'] as const
+type Tab = (typeof TABS)[number]
 
 function App() {
-  const [tab, setTab] = useState<Tab>('analyze')
+  const [tab, setTab] = useSearchParam<Tab>('tab', {
+    defaultValue: 'analyze',
+    ...enumParam(TABS, 'analyze'),
+    history: 'push',
+  })
   const data = useScrapeData()
   const duplicates = useDuplicateDetection()
 
@@ -40,6 +46,7 @@ function App() {
           >
             History
           </button>
+          <ShareLinkButton />
           <button type="button" onClick={() => void data.refresh()} disabled={data.loading}>
             {data.loading ? 'Loading…' : 'Refresh'}
           </button>

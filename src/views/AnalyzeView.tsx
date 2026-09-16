@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import {
+  booleanParam,
+  enumParam,
+  optionalStringParam,
+  useSearchParam,
+} from '../hooks/useUrlQuery'
 import {
   availableDistricts,
   buildAnalysisSnapshot,
@@ -45,10 +51,22 @@ export function AnalyzeView({
   listingsWithHashes = 0,
   onStartDuplicateDetection,
 }: AnalyzeViewProps) {
-  const [mode, setMode] = useState<AnalyzeMode>('listings')
-  const [kind, setKind] = useState<ListingKind>('sale')
-  const [includeRemoved, setIncludeRemoved] = useState(false)
-  const [districtFilter, setDistrictFilter] = useState<string | null>(null)
+  const [mode, setMode] = useSearchParam<AnalyzeMode>('analyze', {
+    defaultValue: 'listings',
+    ...enumParam(['listings', 'owners'] as const, 'listings'),
+  })
+  const [kind, setKind] = useSearchParam<ListingKind>('kind', {
+    defaultValue: 'sale',
+    ...enumParam(['sale', 'rent', 'all'] as const, 'sale'),
+  })
+  const [includeRemoved, setIncludeRemoved] = useSearchParam('removed', {
+    defaultValue: false,
+    ...booleanParam(false),
+  })
+  const [districtFilter, setDistrictFilter] = useSearchParam<string | null>('district', {
+    defaultValue: null,
+    ...optionalStringParam(),
+  })
 
   const districts = useMemo(
     () => availableDistricts(listings, kind, includeRemoved),

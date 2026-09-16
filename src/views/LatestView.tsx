@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
+import { enumParam, optionalStringParam, useSearchParam } from '../hooks/useUrlQuery'
 import {
   computeOwnerReliabilityScore,
   getEffectivePostCount,
@@ -172,14 +173,49 @@ export function LatestView({
   loading = false,
 }: LatestViewProps) {
   const { rates, loading: ratesLoading, error: ratesError } = useExchangeRates()
-  const [window, setWindow] = useState<FeedTimeWindow>('7d')
-  const [typeFilter, setTypeFilter] = useState<FeedTypeFilter>('all')
-  const [filterCurrency, setFilterCurrency] = useState<FilterCurrency>('AMD')
-  const [minPriceInput, setMinPriceInput] = useState('')
-  const [maxPriceInput, setMaxPriceInput] = useState('')
-  const [districtFilter, setDistrictFilter] = useState<string | null>(null)
-  const [reliabilityFilter, setReliabilityFilter] = useState<ReliabilityFilter>('all')
-  const [sortBy, setSortBy] = useState<FeedSortOption>('activity')
+  const [window, setWindow] = useSearchParam<FeedTimeWindow>('window', {
+    defaultValue: '7d',
+    ...enumParam(['24h', '7d', '30d', 'all'] as const, '7d'),
+  })
+  const [typeFilter, setTypeFilter] = useSearchParam<FeedTypeFilter>('activity', {
+    defaultValue: 'all',
+    ...enumParam(['all', 'created', 'updated'] as const, 'all'),
+  })
+  const [filterCurrency, setFilterCurrency] = useSearchParam<FilterCurrency>('currency', {
+    defaultValue: 'AMD',
+    ...enumParam(FILTER_CURRENCIES, 'AMD'),
+  })
+  const [minPriceInput, setMinPriceInput] = useSearchParam('min', {
+    defaultValue: '',
+    parse: (raw) => raw ?? '',
+    serialize: (value) => value || null,
+  })
+  const [maxPriceInput, setMaxPriceInput] = useSearchParam('max', {
+    defaultValue: '',
+    parse: (raw) => raw ?? '',
+    serialize: (value) => value || null,
+  })
+  const [districtFilter, setDistrictFilter] = useSearchParam<string | null>('district', {
+    defaultValue: null,
+    ...optionalStringParam(),
+  })
+  const [reliabilityFilter, setReliabilityFilter] = useSearchParam<ReliabilityFilter>(
+    'reliability',
+    {
+      defaultValue: 'all',
+      ...enumParam(['all', 'unknown', '60', '70', '80'] as const, 'all'),
+    },
+  )
+  const [sortBy, setSortBy] = useSearchParam<FeedSortOption>('sort', {
+    defaultValue: 'activity',
+    ...enumParam(['activity', 'reliability', 'price-asc', 'price-desc'] as const, 'activity'),
+  })
+
+  const clearExtraFilters = useCallback(() => {
+    setMinPriceInput('')
+    setMaxPriceInput('')
+    setDistrictFilter(null)
+  }, [setMinPriceInput, setMaxPriceInput, setDistrictFilter])
 
   const minPrice = parsePriceInput(minPriceInput)
   const maxPrice = parsePriceInput(maxPriceInput)
@@ -401,11 +437,7 @@ export function LatestView({
             <button
               type="button"
               className="latest-clear-price"
-              onClick={() => {
-                setMinPriceInput('')
-                setMaxPriceInput('')
-                setDistrictFilter(null)
-              }}
+              onClick={clearExtraFilters}
             >
               Clear filters
             </button>

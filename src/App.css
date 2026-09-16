@@ -46,6 +46,12 @@ nav button.active {
   border-color: #2563eb;
 }
 
+nav .nav-share-copied {
+  border-color: #16a34a;
+  color: #166534;
+  background: #f0fdf4;
+}
+
 .panel {
   background: #fff;
   border: 1px solid #ddd;

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { enumParam, useSearchParam } from '../hooks/useUrlQuery'
 import {
   BROKER_LISTING_THRESHOLD,
   buildOwnerAnalysisSnapshot,
@@ -33,8 +34,19 @@ export function OwnerAnalysisSection({
   includeRemoved,
   district = null,
 }: OwnerAnalysisSectionProps) {
-  const [typeFilter, setTypeFilter] = useState<OwnerTypeFilter>('all')
-  const [sortBy, setSortBy] = useState<'reliability' | 'posts' | 'rating' | 'confidence'>('reliability')
+  const [typeFilter, setTypeFilter] = useSearchParam<OwnerTypeFilter>('ownerType', {
+    defaultValue: 'all',
+    ...enumParam(
+      ['all', 'agency', 'broker', 'likely_owner', 'uncertain'] as const,
+      'all',
+    ),
+  })
+  const [sortBy, setSortBy] = useSearchParam<
+    'reliability' | 'posts' | 'rating' | 'confidence'
+  >('ownerSort', {
+    defaultValue: 'reliability',
+    ...enumParam(['reliability', 'posts', 'rating', 'confidence'] as const, 'reliability'),
+  })
 
   const analysis = useMemo(
     () => buildOwnerAnalysisSnapshot(listings, owners, kind, includeRemoved, district),

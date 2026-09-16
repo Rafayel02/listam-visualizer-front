@@ -35,16 +35,15 @@ function parsePriceInput(raw: string): number | undefined {
   return Number.isFinite(value) && value > 0 ? value : undefined
 }
 
-type ReliabilityFilter = 'all' | 'high' | 'good' | 'moderate' | 'low' | 'unknown'
+type ReliabilityFilter = 'all' | 'unknown' | '60' | '70' | '80'
 type FeedSortOption = 'activity' | 'reliability' | 'price-asc' | 'price-desc'
 
 const RELIABILITY_FILTERS: { id: ReliabilityFilter; label: string }[] = [
   { id: 'all', label: 'All owners' },
-  { id: 'high', label: 'High (80+)' },
-  { id: 'good', label: 'Good (60–79)' },
-  { id: 'moderate', label: 'Moderate (40–59)' },
-  { id: 'low', label: 'Low (<40)' },
-  { id: 'unknown', label: 'Unknown owner' },
+  { id: '80', label: '80+ reliability' },
+  { id: '70', label: '70+ reliability' },
+  { id: '60', label: '60+ reliability' },
+  { id: 'unknown', label: 'Unknown owner only' },
 ]
 
 const SORT_OPTIONS: { id: FeedSortOption; label: string }[] = [
@@ -65,25 +64,16 @@ function ownerReliabilityScore(
   ).score
 }
 
-function reliabilityTier(
-  item: ActiveFeedItem,
-  listingCountByOwner: Map<string, number>,
-): ReliabilityFilter {
-  if (!item.owner) return 'unknown'
-  const score = ownerReliabilityScore(item, listingCountByOwner)
-  if (score >= 80) return 'high'
-  if (score >= 60) return 'good'
-  if (score >= 40) return 'moderate'
-  return 'low'
-}
-
 function passesReliabilityFilter(
   item: ActiveFeedItem,
   filter: ReliabilityFilter,
   listingCountByOwner: Map<string, number>,
 ): boolean {
   if (filter === 'all') return true
-  return reliabilityTier(item, listingCountByOwner) === filter
+  if (filter === 'unknown') return !item.owner
+  const score = ownerReliabilityScore(item, listingCountByOwner)
+  if (score < 0) return false
+  return score >= Number(filter)
 }
 
 function listingSortPrice(
@@ -442,7 +432,7 @@ export function LatestView({
           <p className="muted">
             {items.length === 0
               ? 'Run detail analysis in scrape-front, sync to backend, then refresh. Card-only listings are not shown here.'
-              : 'Try another district, owner reliability tier, price range, or filter currency.'}
+              : 'Try another district, lower the reliability minimum, widen the price range, or change currency.'}
           </p>
         </section>
       ) : (

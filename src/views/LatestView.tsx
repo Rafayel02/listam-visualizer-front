@@ -11,6 +11,7 @@ import {
   currencyLabel,
   formatConversionHints,
   formatPriceRangeHints,
+  listingPriceInFilterCurrency,
   passesPriceFilter,
   type FilterCurrency,
 } from '../utils/currency'
@@ -34,6 +35,25 @@ function parsePriceInput(raw: string): number | undefined {
   return Number.isFinite(value) && value > 0 ? value : undefined
 }
 
+type ReliabilityFilter = 'all' | 'high' | 'good' | 'moderate' | 'low' | 'unknown'
+type FeedSortOption = 'activity' | 'reliability' | 'price-asc' | 'price-desc'
+
+const RELIABILITY_FILTERS: { id: ReliabilityFilter; label: string }[] = [
+  { id: 'all', label: 'All owners' },
+  { id: 'high', label: 'High (80+)' },
+  { id: 'good', label: 'Good (60–79)' },
+  { id: 'moderate', label: 'Moderate (40–59)' },
+  { id: 'low', label: 'Low (<40)' },
+  { id: 'unknown', label: 'Unknown owner' },
+]
+
+const SORT_OPTIONS: { id: FeedSortOption; label: string }[] = [
+  { id: 'activity', label: 'Latest activity' },
+  { id: 'reliability', label: 'Owner reliability' },
+  { id: 'price-asc', label: 'Price: low to high' },
+  { id: 'price-desc', label: 'Price: high to low' },
+]
+
 function ownerReliabilityScore(
   item: ActiveFeedItem,
   listingCountByOwner: Map<string, number>,
@@ -45,11 +65,47 @@ function ownerReliabilityScore(
   ).score
 }
 
+function reliabilityTier(
+  item: ActiveFeedItem,
+  listingCountByOwner: Map<string, number>,
+): ReliabilityFilter {
+  if (!item.owner) return 'unknown'
+  const score = ownerReliabilityScore(item, listingCountByOwner)
+  if (score >= 80) return 'high'
+  if (score >= 60) return 'good'
+  if (score >= 40) return 'moderate'
+  return 'low'
+}
+
+function passesReliabilityFilter(
+  item: ActiveFeedItem,
+  filter: ReliabilityFilter,
+  listingCountByOwner: Map<string, number>,
+): boolean {
+  if (filter === 'all') return true
+  return reliabilityTier(item, listingCountByOwner) === filter
+}
+
+function listingSortPrice(
+  item: ActiveFeedItem,
+  filterCurrency: FilterCurrency,
+  rates: ExchangeRates,
+): number | null {
+  return listingPriceInFilterCurrency(
+    item.listing.price,
+    item.listing.currency,
+    filterCurrency,
+    rates,
+  )
+}
+
 function filterAndSortFeedItems(
   items: ActiveFeedItem[],
   filterCurrency: FilterCurrency,
   minPrice: number | undefined,
   maxPrice: number | undefined,
+  reliabilityFilter: ReliabilityFilter,
+  sortBy: FeedSortOption,
   listingCountByOwner: Map<string, number>,
   rates: ExchangeRates,
   districtFilter: string | null,
@@ -59,21 +115,42 @@ function filterAndSortFeedItems(
       const district = item.listing.district?.trim() ?? ''
       if (district !== districtFilter) return false
     }
-    return passesPriceFilter(
-      item.listing.price,
-      item.listing.currency,
-      filterCurrency,
-      rates,
-      minPrice,
-      maxPrice,
+    return (
+      passesPriceFilter(
+        item.listing.price,
+        item.listing.currency,
+        filterCurrency,
+        rates,
+        minPrice,
+        maxPrice,
+      ) && passesReliabilityFilter(item, reliabilityFilter, listingCountByOwner)
     )
   })
 
   return [...filtered].sort((a, b) => {
-    const reliabilityCmp =
-      ownerReliabilityScore(b, listingCountByOwner) -
-      ownerReliabilityScore(a, listingCountByOwner)
-    if (reliabilityCmp !== 0) return reliabilityCmp
+    if (sortBy === 'activity') {
+      const activityCmp = b.activityAt - a.activityAt
+      if (activityCmp !== 0) return activityCmp
+      return ownerReliabilityScore(b, listingCountByOwner) -
+        ownerReliabilityScore(a, listingCountByOwner)
+    }
+
+    if (sortBy === 'reliability') {
+      const reliabilityCmp =
+        ownerReliabilityScore(b, listingCountByOwner) -
+        ownerReliabilityScore(a, listingCountByOwner)
+      if (reliabilityCmp !== 0) return reliabilityCmp
+      return b.activityAt - a.activityAt
+    }
+
+    const priceA = listingSortPrice(a, filterCurrency, rates)
+    const priceB = listingSortPrice(b, filterCurrency, rates)
+    if (priceA == null && priceB == null) return b.activityAt - a.activityAt
+    if (priceA == null) return 1
+    if (priceB == null) return -1
+
+    const priceCmp = sortBy === 'price-asc' ? priceA - priceB : priceB - priceA
+    if (priceCmp !== 0) return priceCmp
     return b.activityAt - a.activityAt
   })
 }
@@ -111,11 +188,14 @@ export function LatestView({
   const [minPriceInput, setMinPriceInput] = useState('')
   const [maxPriceInput, setMaxPriceInput] = useState('')
   const [districtFilter, setDistrictFilter] = useState<string | null>(null)
+  const [reliabilityFilter, setReliabilityFilter] = useState<ReliabilityFilter>('all')
+  const [sortBy, setSortBy] = useState<FeedSortOption>('activity')
 
   const minPrice = parsePriceInput(minPriceInput)
   const maxPrice = parsePriceInput(maxPriceInput)
   const priceFilterActive = minPrice != null || maxPrice != null
-  const extraFiltersActive = priceFilterActive || districtFilter != null
+  const extraFiltersActive =
+    priceFilterActive || districtFilter != null || reliabilityFilter !== 'all'
 
   const listingById = useMemo(() => new Map(listings.map((l) => [l.id, l])), [listings])
 
@@ -160,11 +240,23 @@ export function LatestView({
         filterCurrency,
         minPrice,
         maxPrice,
+        reliabilityFilter,
+        sortBy,
         listingCountByOwner,
         rates,
         districtFilter,
       ),
-    [items, filterCurrency, minPrice, maxPrice, listingCountByOwner, rates, districtFilter],
+    [
+      items,
+      filterCurrency,
+      minPrice,
+      maxPrice,
+      reliabilityFilter,
+      sortBy,
+      listingCountByOwner,
+      rates,
+      districtFilter,
+    ],
   )
 
   const conversionHint = useMemo(() => {
@@ -189,8 +281,9 @@ export function LatestView({
           <p className="latest-eyebrow">Live inventory</p>
           <h2>Latest active posts</h2>
           <p className="latest-subtitle">
-            Only listings with analyzed detail pages (owners, dates, price history). Sorted by
-            owner reliability. Price filters use live exchange rates.
+            Only listings with analyzed detail pages (owners, dates, price history). Filter by
+            owner reliability and sort by activity, price, or reliability. Price filters use live
+            exchange rates.
           </p>
         </div>
         <div className="latest-stats">
@@ -229,6 +322,36 @@ export function LatestView({
               {option === 'all' ? 'All activity' : option === 'created' ? 'New only' : 'Updated only'}
             </button>
           ))}
+        </div>
+        <div className="latest-filter-row">
+          <label className="latest-select-label">
+            Owner reliability
+            <select
+              className="latest-select"
+              value={reliabilityFilter}
+              onChange={(e) => setReliabilityFilter(e.target.value as ReliabilityFilter)}
+            >
+              {RELIABILITY_FILTERS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="latest-select-label">
+            Sort by
+            <select
+              className="latest-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as FeedSortOption)}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <div className="latest-price-filter">
           {availableDistricts.length > 0 && (
@@ -319,7 +442,7 @@ export function LatestView({
           <p className="muted">
             {items.length === 0
               ? 'Run detail analysis in scrape-front, sync to backend, then refresh. Card-only listings are not shown here.'
-              : 'Try another district, widen the price range, or change the filter currency.'}
+              : 'Try another district, owner reliability tier, price range, or filter currency.'}
           </p>
         </section>
       ) : (

@@ -355,17 +355,17 @@ function DaySection({ summary, mode, enabled }: DaySectionProps) {
       <section className="history-day panel history-day-skeleton">
         <header className="history-day-header">
           <h3>{summary.label}</h3>
-          <span className="history-day-count">{summary.totalEvents} changes</span>
         </header>
         <p className="muted history-day-loading">Scroll to load this day…</p>
       </section>
     )
   }
 
+  const dayEventTotal = dayActivity?.totals.total ?? summary.totalEvents
   const dayMeta =
     mode === 'owners'
-      ? `${owners.length} of ${totalOwners} owners shown · ${summary.totalEvents} actions`
-      : `${summary.totalEvents} changes`
+      ? `${owners.length} of ${totalOwners} owners shown · ${dayEventTotal} actions`
+      : `${dayEventTotal} changes`
 
   return (
     <section className="history-day panel">
@@ -450,7 +450,6 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
     ...enumParam(['timeline', 'owners', 'correlation'] as const, 'owners'),
   })
   const [summaries, setSummaries] = useState<DaySummary[]>([])
-  const [totalEvents, setTotalEvents] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -461,7 +460,6 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
       .then((data) => {
         if (cancelled) return
         setSummaries(data.days)
-        setTotalEvents(data.totalEvents)
         setError(null)
       })
       .catch((err) => {
@@ -530,7 +528,7 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
           </label>
           {!isLoading && (
             <span className="history-stats">
-              {summaries.length} days · {totalEvents} events
+              {summaries.length} day{summaries.length === 1 ? '' : 's'} with activity
             </span>
           )}
         </div>

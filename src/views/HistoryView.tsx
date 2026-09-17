@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useInView } from '../hooks/useInView'
 import { enumParam, numberParam, useSearchParam } from '../hooks/useUrlQuery'
 import { reliabilityColor } from '../analytics/ownerAnalytics'
 import {
@@ -248,6 +249,7 @@ function OwnerSection({ date, owner }: OwnerSectionProps) {
 interface DaySectionProps {
   summary: DaySummary
   mode: HistoryViewMode
+  enabled: boolean
 }
 
 function mergeOwners(
@@ -259,7 +261,7 @@ function mergeOwners(
   return [...current, ...added]
 }
 
-function DaySection({ summary, mode }: DaySectionProps) {
+function DaySection({ summary, mode, enabled }: DaySectionProps) {
   const [page, setPage] = useState(1)
   const [events, setEvents] = useState<HistoryEvent[]>([])
   const [owners, setOwners] = useState<OwnerDaySummary[]>([])
@@ -314,6 +316,7 @@ function DaySection({ summary, mode }: DaySectionProps) {
   }, [hasMoreOwners, loadingMoreOwners, loadOwnersBatch, nextActionOffset])
 
   useEffect(() => {
+    if (!enabled) return
     let cancelled = false
     setLoadingSummary(true)
     void fetchDayActivitySummary(summary.date)
@@ -333,9 +336,10 @@ function DaySection({ summary, mode }: DaySectionProps) {
     return () => {
       cancelled = true
     }
-  }, [summary.date])
+  }, [summary.date, enabled])
 
   useEffect(() => {
+    if (!enabled) return
     if (mode === 'timeline') {
       loadTimelinePage(1)
       return
@@ -344,7 +348,19 @@ function DaySection({ summary, mode }: DaySectionProps) {
     setNextActionOffset(0)
     setHasMoreOwners(false)
     loadOwnersBatch(0, false)
-  }, [mode, loadTimelinePage, loadOwnersBatch])
+  }, [enabled, mode, loadTimelinePage, loadOwnersBatch])
+
+  if (!enabled) {
+    return (
+      <section className="history-day panel history-day-skeleton">
+        <header className="history-day-header">
+          <h3>{summary.label}</h3>
+          <span className="history-day-count">{summary.totalEvents} changes</span>
+        </header>
+        <p className="muted history-day-loading">Scroll to load this day…</p>
+      </section>
+    )
+  }
 
   const dayMeta =
     mode === 'owners'
@@ -406,6 +422,21 @@ function DaySection({ summary, mode }: DaySectionProps) {
         </>
       )}
     </section>
+  )
+}
+
+function DeferredDaySection({
+  summary,
+  mode,
+  eager = false,
+}: Omit<DaySectionProps, 'enabled'> & { eager?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref)
+
+  return (
+    <div ref={ref}>
+      <DaySection summary={summary} mode={mode} enabled={eager || inView} />
+    </div>
   )
 }
 
@@ -530,8 +561,13 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
 
       {mode !== 'correlation' &&
         !isLoading &&
-        summaries.map((summary) => (
-          <DaySection key={`${summary.date}-${mode}`} summary={summary} mode={mode} />
+        summaries.map((summary, index) => (
+          <DeferredDaySection
+            key={`${summary.date}-${mode}`}
+            summary={summary}
+            mode={mode}
+            eager={index === 0}
+          />
         ))}
     </div>
   )

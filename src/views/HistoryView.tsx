@@ -250,6 +250,7 @@ interface DaySectionProps {
   summary: DaySummary
   mode: HistoryViewMode
   enabled: boolean
+  onLoaded?: () => void
 }
 
 function mergeOwners(
@@ -261,7 +262,7 @@ function mergeOwners(
   return [...current, ...added]
 }
 
-function DaySection({ summary, mode, enabled }: DaySectionProps) {
+function DaySection({ summary, mode, enabled, onLoaded }: DaySectionProps) {
   const [page, setPage] = useState(1)
   const [events, setEvents] = useState<HistoryEvent[]>([])
   const [owners, setOwners] = useState<OwnerDaySummary[]>([])
@@ -350,6 +351,11 @@ function DaySection({ summary, mode, enabled }: DaySectionProps) {
     loadOwnersBatch(0, false)
   }, [enabled, mode, loadTimelinePage, loadOwnersBatch])
 
+  useEffect(() => {
+    if (!enabled || loading || loadingSummary || error || summaryError) return
+    onLoaded?.()
+  }, [enabled, loading, loadingSummary, error, summaryError, onLoaded])
+
   if (!enabled) {
     return (
       <section className="history-day panel history-day-skeleton">
@@ -428,34 +434,51 @@ function DaySection({ summary, mode, enabled }: DaySectionProps) {
 function DeferredDaySection({
   summary,
   mode,
-  eager = false,
-}: Omit<DaySectionProps, 'enabled'> & { eager?: boolean }) {
+  index,
+  unlockedIndex,
+  onLoaded,
+}: Omit<DaySectionProps, 'enabled'> & {
+  index: number
+  unlockedIndex: number
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref)
+  const enabled = index <= unlockedIndex && (index === 0 || inView)
 
   return (
     <div ref={ref}>
-      <DaySection summary={summary} mode={mode} enabled={eager || inView} />
+      <DaySection
+        summary={summary}
+        mode={mode}
+        enabled={enabled}
+        onLoaded={onLoaded}
+      />
     </div>
   )
 }
 
-export function HistoryView({ loading: parentLoading = false }: HistoryViewProps) {
+export function HistoryView({ loading: _parentLoading = false }: HistoryViewProps) {
   const [days, setDays] = useSearchParam('days', {
-    defaultValue: 14,
-    ...numberParam([7, 14, 30, 60, 90], 14),
+    defaultValue: 7,
+    ...numberParam([7, 14, 30, 60, 90], 7),
   })
   const [mode, setMode] = useSearchParam<HistoryViewMode>('history', {
     defaultValue: 'owners',
     ...enumParam(['timeline', 'owners', 'correlation'] as const, 'owners'),
   })
   const [summaries, setSummaries] = useState<DaySummary[]>([])
+  const [unlockedDayIndex, setUnlockedDayIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const handleDayLoaded = useCallback((index: number) => {
+    setUnlockedDayIndex((prev) => Math.max(prev, index + 1))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setUnlockedDayIndex(0)
     void fetchChangeHistorySummary(days)
       .then((data) => {
         if (cancelled) return
@@ -474,7 +497,7 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
     }
   }, [days])
 
-  const isLoading = parentLoading || loading
+  const isLoading = loading
 
   return (
     <div className="history-view">
@@ -564,7 +587,9 @@ export function HistoryView({ loading: parentLoading = false }: HistoryViewProps
             key={`${summary.date}-${mode}`}
             summary={summary}
             mode={mode}
-            eager={index === 0}
+            index={index}
+            unlockedIndex={unlockedDayIndex}
+            onLoaded={() => handleDayLoaded(index)}
           />
         ))}
     </div>
